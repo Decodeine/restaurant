@@ -10,4 +10,5 @@ urlpatterns = [
     path('menu/', views.MenuItemsView.as_view(), name="MenuItemsView"),
     path('menu/<int:pk>', views.SingleMenuItemView.as_view()),
     path('categories', views.CategoriesView.as_view()),
+    path('ratings', views.RatingsView.as_view()),
 ]

@@ -2,9 +2,22 @@ from django.http import HttpResponse
 from django.shortcuts import render
 from .forms import BookingForm
 from .models import Menu, Category
-from rest_framework import generics, filters
-from .serializers import MenuItemSerializer, CategorySerializer
+from rest_framework import generics
+from .serializers import MenuItemSerializer, CategorySerializer,RatingSerializer
 from rest_framework.pagination import PageNumberPagination
+from rest_framework.permissions import IsAuthenticated
+from .models import Rating
+
+
+class RatingsView(generics.ListCreateAPIView):
+    queryset = Rating.objects.all()
+    serializer_class = RatingSerializer
+
+    def get_permissions(self):
+        if(self.request.method=='GET'):
+            return []
+
+        return [IsAuthenticated()]
 
 # Create your views here.
 def home(request):

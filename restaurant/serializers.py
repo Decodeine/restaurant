@@ -5,6 +5,20 @@ import bleach
 from rest_framework.validators import UniqueTogetherValidator
 from django.contrib.auth.models import User
 from .models import Cart
+from rest_framework import serializers
+from .models import Order, OrderItem
+
+class OrderItemSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = OrderItem
+        fields = ['menu', 'quantity', 'unit_price', 'price']
+
+class OrderSerializer(serializers.ModelSerializer):
+    order_items = OrderItemSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Order
+        fields = ['id', 'user', 'order_items', 'status', 'delivery_crew']
 
 class CartSerializer(serializers.ModelSerializer):
     class Meta:

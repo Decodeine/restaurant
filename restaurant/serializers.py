@@ -4,6 +4,17 @@ from rest_framework.validators import UniqueValidator
 import bleach
 from rest_framework.validators import UniqueTogetherValidator
 from django.contrib.auth.models import User
+from .models import Cart
+
+class CartSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Cart
+        fields = ['id', 'user', 'menu', 'quantity', 'unit_price', 'price']
+        read_only_fields = ['id', 'user']  
+
+
+
+
 
 class RatingSerializer (serializers.ModelSerializer):
     user = serializers.PrimaryKeyRelatedField(

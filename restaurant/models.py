@@ -1,5 +1,8 @@
 from django.db import models
 from django.contrib.auth.models import User
+from django.utils import timezone
+
+
 
 class Rating(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
@@ -37,15 +40,28 @@ class Menu(models.Model):
 
     def __str__(self):
         return self.name
+
+
 class Cart(models.Model):
-    user=models.ForeignKey(User, on_delete=models.CASCADE)
-    menu=models.ForeignKey(Menu, on_delete=models.CASCADE)
-    quantity=models.SmallIntegerField()
-    unit_price=models.DecimalField(max_digits=6,decimal_places=2)
-    price=models.DecimalField(max_digits=6,decimal_places=2)
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    menu = models.ForeignKey(Menu, on_delete=models.CASCADE)
+    quantity = models.SmallIntegerField()
+    unit_price = models.DecimalField(max_digits=6, decimal_places=2, editable=False)
+    price = models.DecimalField(max_digits=6, decimal_places=2, editable=False)
+    created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        unique_together= ('menu', 'user')
+        unique_together = ('menu', 'user')
+
+    def save(self, *args, **kwargs):
+        # Set unit_price based on the associated menu item
+        self.unit_price = self.menu.price
+
+        # Calculate total price based on quantity
+        self.price = self.unit_price * self.quantity
+
+        super().save(*args, **kwargs)
+
 
 class Order(models.Model):
     user=models.ForeignKey(User, on_delete=models.CASCADE)

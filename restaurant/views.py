@@ -9,19 +9,27 @@ from .models import Rating
 from rest_framework import permissions
 from django.contrib.auth.models import User,Group
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated, IsAdminUser
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework import generics
 from django.shortcuts import get_object_or_404
+from rest_framework.throttling import AnonRateThrottle, UserRateThrottle
+from django.core.exceptions import PermissionDenied
+
 
 class IsManagerOrReadOnly(permissions.BasePermission):
     def has_permission(self, request, view):
-        if request.method == 'GET':
+        if request.method in permissions.SAFE_METHODS:
             return True
-        elif request.method in permissions.SAFE_METHODS:
-            return request.user and request.user.groups.filter(name='manager').exists()
-        return False
+        return request.user and request.user.groups.filter(name='manager').exists()
+
+    def has_object_permission(self, request, view, obj):
+        if request.method in permissions.SAFE_METHODS:
+            return True
+        return request.user.groups.filter(name='manager').exists()
+
+
 
 class IsDeliveryCrew(permissions.BasePermission):
     def has_permission(self, request, view):
@@ -37,6 +45,8 @@ class IsOrderOwner(permissions.BasePermission):
 
 
 class RatingsView(generics.ListCreateAPIView):
+    throttle_classes = [AnonRateThrottle, UserRateThrottle]
+
     queryset = Rating.objects.all()
     serializer_class = RatingSerializer
 
@@ -87,12 +97,12 @@ class SingleMenuItemView(generics.RetrieveUpdateDestroyAPIView):
 
 
 @api_view(['GET', 'POST'])
-@permission_classes([IsAdminUser])
+@permission_classes([IsManagerOrReadOnly])
 def manager_users(request):
     if request.method == 'GET':
         # Retrieve all users in the 'manager' group
-        managers = User.objects.filter(groups__name='Manager')
-        manager_data = [{'id': Manager.id, 'username': Manager.username} for Manager in managers]
+        managers = User.objects.filter(groups__name='manager')
+        manager_data = [{'id': manager.id, 'username': manager.username} for manager in managers]
         return Response(manager_data)
 
     elif request.method == 'POST':
@@ -103,22 +113,22 @@ def manager_users(request):
         except (KeyError, User.DoesNotExist):
             return Response({'error': 'Invalid user_id'}, status=status.HTTP_400_BAD_REQUEST)
 
-        manager_group, created = Group.objects.get_or_create(name='Manager')
+        manager_group, created = Group.objects.get_or_create(name='manager')
         user.groups.add(manager_group)
         return Response(status=status.HTTP_201_CREATED)
 
 @api_view(['DELETE'])
-@permission_classes([IsAdminUser])
+@permission_classes([IsManagerOrReadOnly])
 def remove_manager_user(request, user_id):
     user = get_object_or_404(User, pk=user_id)
-    manager_group = get_object_or_404(Group, name='Manager')
+    manager_group = get_object_or_404(Group, name='manager')
     user.groups.remove(manager_group)
     return Response(status=status.HTTP_200_OK)
 
 
 
 @api_view(['GET', 'POST'])
-@permission_classes([IsAdminUser])
+@permission_classes([IsManagerOrReadOnly])
 def delivery_crew_users(request):
     # Similar implementation for 'delivery_crew' group
     if request.method == 'GET':
@@ -140,7 +150,7 @@ def delivery_crew_users(request):
         return Response(status=status.HTTP_201_CREATED)
 
 @api_view(['DELETE'])
-@permission_classes([IsAdminUser])
+@permission_classes([IsManagerOrReadOnly])
 def remove_delivery_crew_user(request, user_id):
     # Remove the user with the given user_id from the 'delivery_crew' group
     user = get_object_or_404(User, pk=user_id)
@@ -150,6 +160,8 @@ def remove_delivery_crew_user(request, user_id):
 
 
 class CartMenuItemsView(generics.ListCreateAPIView):
+    throttle_classes = [AnonRateThrottle, UserRateThrottle]
+
     permission_classes = [IsAuthenticated]
     serializer_class = CartSerializer
 
@@ -181,14 +193,20 @@ class CartMenuItemsView(generics.ListCreateAPIView):
 
 
 class OrderListView(generics.ListCreateAPIView):
+    throttle_classes = [AnonRateThrottle, UserRateThrottle]
+
     serializer_class = OrderSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
         user = self.request.user
-        if user.groups.filter(name='Manager').exists():
+        if user.groups.filter(name='manager').exists():
             # Manager can see orders for all users
             return Order.objects.all()
+        elif user.groups.filter(name='delivery_crew').exists():
+            # Delivery crew can see all orders assigned to them
+            return Order.objects.filter(delivery_crew=user)
+
         else:
             # Customers can see only their orders
             return Order.objects.filter(user=user)
@@ -207,7 +225,7 @@ class OrderListView(generics.ListCreateAPIView):
         # Create a new order
         order = Order.objects.create(
             user=self.request.user,
-            status=True,  # Set your default status here
+            # status=True,  # Set your default status here
             total=total_price,  # Set your default total here
             # You may need to set other fields like delivery_crew, date, etc.
         )
@@ -224,6 +242,9 @@ class OrderListView(generics.ListCreateAPIView):
 
         # Delete all items from the cart for this user
         cart_items.delete()
+        
+        # Set the order status based on conditions
+        self.set_order_status(order)
 
         # Set the created order as the serializer instance
         serializer.instance = order
@@ -234,14 +255,23 @@ class OrderListView(generics.ListCreateAPIView):
         self.perform_create(serializer)
         headers = self.get_success_headers(serializer.data)
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
-    
+
+    def set_order_status(self, order):
+        # Additional logic for setting the status based on conditions
+        # For example, you might want to set the status to 'out for delivery' if a delivery_crew is assigned
+        if order.delivery_crew and order.status is None:
+            order.status = 0
+            order.save()
+
 
 
 class OrderDetailView(generics.RetrieveUpdateDestroyAPIView):
+    throttle_classes = [AnonRateThrottle, UserRateThrottle]
     queryset = Order.objects.all()
     serializer_class = OrderSerializer
     permission_classes = [IsOrderOwner | IsManagerOrReadOnly | IsDeliveryCrew]
 
+    
     def update(self, request, *args, **kwargs):
         partial = kwargs.pop('partial', False)
         instance = self.get_object()
@@ -250,44 +280,48 @@ class OrderDetailView(generics.RetrieveUpdateDestroyAPIView):
 
         # Check if a manager or delivery crew is updating the order
         if request.user.groups.filter(name='manager').exists():
-            # Check if a delivery crew is assigned
+            # Only managers can assign a delivery crew
             if 'delivery_crew' in serializer.validated_data and serializer.validated_data['delivery_crew'] is not None:
-                # Check and update the status accordingly
-                if serializer.validated_data.get('status') == 0:
-                    # Status 0 means the order is out for delivery
-                    # You may want to implement additional logic here
-                    pass
-                elif serializer.validated_data.get('status') == 1:
-                    # Status 1 means the order has been delivered
-                    # You may want to implement additional logic here
-                    pass
+                raise PermissionDenied("Managers can only update the status or assign a delivery crew.")
+        elif request.user.groups.filter(name='delivery_crew').exists():
+            # Delivery crew can update the status field
+            if 'status' in serializer.validated_data:
+                # Additional logic for handling status updates by delivery crew
+                # You may want to add more conditions or validation here
+                pass
+            else:
+                # Delivery crew cannot update the delivery_crew field
+                serializer.validated_data.pop('delivery_crew', None)
+        else:
+            # Users/customers can only update the order without assigning a delivery crew
+            serializer.validated_data.pop('delivery_crew', None)
 
+        # Allow updating other fields (like status) for all user groups
         self.perform_update(serializer)
         return Response(serializer.data)
-
     def perform_destroy(self, instance):
+        # Check if the user has permission to delete the order
+        if not self.request.user.groups.filter(name='manager').exists():
+            raise PermissionDenied("You do not have permission to delete this order.")
+        
         # Perform additional actions before deleting the order
         instance.delete()
 
     def delete(self, request, *args, **kwargs):
         instance = self.get_object()
         # Check if the user has permission to delete the order
-        self.check_object_permissions(request, instance)
         self.perform_destroy(instance)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
-    # Add other actions as needed
-
     def get_queryset(self):
-      user = self.request.user
-      if user.groups.filter(name='manager').exists():
-        # Manager can see orders for all users
-          return Order.objects.all()
-      elif user.groups.filter(name='delivery_crew').exists():
-        # Delivery crew can see orders assigned to them
-          return Order.objects.filter(delivery_crew=user)
-      else:
-        # Other users can only see their own orders
-         return Order.objects.filter(user=user)
-
+        user = self.request.user
+        if user.groups.filter(name='manager').exists():
+            # Manager can see orders for all users
+            return Order.objects.all()
+        elif user.groups.filter(name='delivery_crew').exists():
+            # Delivery crew can see orders assigned to them
+            return Order.objects.filter(delivery_crew=user)
+        else:
+            # Other users can only see their own orders
+            return Order.objects.filter(user=user)
 

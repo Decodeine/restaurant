@@ -10,6 +10,7 @@ urlpatterns = [
     path('', views.home, name="home"),
     path('about/', views.about, name="about"),
     path('book/', views.book, name="book"), 
+    path('bookings', views.bookings, name='bookings'),
     path('api/menu/', views.MenuItemsView.as_view(), name="MenuItemsView"),
     path('api/menu/<int:pk>', views.SingleMenuItemView.as_view()),
     path('categories', views.CategoriesView.as_view()),
@@ -19,7 +20,7 @@ urlpatterns = [
     path('api/groups/delivery-crew/users/', delivery_crew_users, name='delivery_crew_users'),
     path('api/groups/delivery-crew/users/<int:user_id>/', remove_delivery_crew_user, name='remove_delivery_crew_user'),
     path('api/cart/menu',views.CartMenuItemsView.as_view()),
-    path('api/order',views.OrderListView.as_view()),
-    path('api/order/<int:pk>/',views.OrderDetailView.as_view())
+    path('api/orders',views.OrderListView.as_view()),
+    path('api/orders/<int:pk>/',views.OrderDetailView.as_view())
     # Add other URLs as needed
 ]

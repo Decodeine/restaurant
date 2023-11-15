@@ -10,14 +10,22 @@ class Rating(models.Model):
     rating = models.SmallIntegerField()
 
 
-class Booking(models.Model):
+'''class Booking(models.Model):
    first_name = models.CharField(max_length=200)    
    last_name = models.CharField(max_length=200)
    guest_number = models.IntegerField()
    comment = models.CharField(max_length=1000)
 
    def __str__(self):
-      return self.first_name + ' ' + self.last_name
+      return self.first_name + ' ' + self.last_name'''
+
+class Booking(models.Model):
+    first_name = models.CharField(max_length=200)
+    reservation_date = models.DateField()
+    reservation_slot = models.SmallIntegerField(default=10)
+
+    def __str__(self): 
+        return self.first_name
 
 
 
@@ -30,16 +38,17 @@ class Category(models.Model):
         return self.title
 
 class Menu(models.Model):
-    name = models.CharField(max_length=200,db_index=True)
-    price = models.DecimalField(max_digits=6, decimal_places=2,db_index=True)  # You can use validators=[MinValueValidator(2)] here if needed
-    menu_item_description = models.TextField(max_length=1000,db_index=True, default='')
+    name = models.CharField(max_length=200, db_index=True)
+    price = models.DecimalField(max_digits=6, decimal_places=2, db_index=True)
+    menu_item_description = models.TextField(max_length=1000, default='')  # Specify a max_length
     inventory = models.SmallIntegerField(db_index=True)
-    featured= models.BooleanField(db_index=True)
+    featured = models.BooleanField(db_index=True)
 
     category = models.ForeignKey(Category, on_delete=models.PROTECT, default=1)
 
     def __str__(self):
         return self.name
+
 
 
 class Cart(models.Model):

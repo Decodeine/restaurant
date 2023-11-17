@@ -1,12 +1,27 @@
 from rest_framework import serializers
-from .models import Menu,Category,Rating
+from .models import Menu,Category,Rating,Order, OrderItem,Booking, Cart
 from rest_framework.validators import UniqueValidator
 import bleach
 from rest_framework.validators import UniqueTogetherValidator
-from django.contrib.auth.models import User
-from .models import Cart
+from django.contrib.auth.models import User,Group
 from rest_framework import serializers
-from .models import Order, OrderItem
+
+
+class BookingSerializer(serializers.ModelSerializer):
+    class Meta():
+        model = Booking
+        fields = '__all__'
+
+class GroupNameField(serializers.RelatedField):
+    def to_representation(self, value):
+        # Return the group name
+        return value.name
+
+class UserSerializer(serializers.ModelSerializer):
+    groups = GroupNameField(many=True, read_only=True)
+    class Meta:
+        model = User
+        fields = ('url', 'username', 'email', 'groups')
 
 class OrderItemSerializer(serializers.ModelSerializer):
     class Meta:
@@ -27,7 +42,11 @@ class CartSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'user']  
 
 
-
+class BookingSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Booking
+        fields = '__all__'
+        
 
 
 class RatingSerializer (serializers.ModelSerializer):

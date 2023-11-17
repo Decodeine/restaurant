@@ -18,7 +18,7 @@
           <p>
             <!-- Step 9: Part one -->
             <label for="reservation_date">Reservation_date:</label> <!-- Fixed the ID and added a missing double quote -->
-            <input type="text" placeholder="reservation_date" maxlength="200" required="" id="reservation_date">
+            <input type="date" placeholder="reservation_date" maxlength="200" required="" id="reservation_date">
           </p>
           <p>
             <label for="reservation_slot">Reservation time:</label>
@@ -64,7 +64,7 @@
     const date = document.getElementById('reservation_date').value
     document.getElementById('today').innerHTML = date
     
-    fetch("{% url 'bookings' %}" + '?date=' + date)
+    fetch("{% url 'restaurant:bookings' %}" + '?date=' + date)
       .then(r => r.json())
       .then(data => {
         reserved_slots = []
@@ -115,7 +115,7 @@
       reservation_slot: document.getElementById('reservation_slot').value,
     }
 
-    fetch("{% url 'bookings' %}", { method: 'post', body: JSON.stringify(formdata) })
+    fetch("{% url 'restaurant:bookings' %}", { method: 'post', body: JSON.stringify(formdata) })
       .then(r => r.text())
       .then(data => {
         getBookings()

@@ -11,8 +11,7 @@ from django.contrib.auth.models import User,Group
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from rest_framework import status
-from rest_framework import generics
+from rest_framework import status, viewsets,generics
 from django.shortcuts import get_object_or_404
 from rest_framework.throttling import AnonRateThrottle, UserRateThrottle
 from django.core.exceptions import PermissionDenied
@@ -34,7 +33,11 @@ class IsManagerOrReadOnly(permissions.BasePermission):
         return request.user.groups.filter(name='manager').exists()
 
 
-
+class BookingViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticated]
+    
+    queryset = Booking.objects.all()
+    
 class IsDeliveryCrew(permissions.BasePermission):
     def has_permission(self, request, view):
         return request.user and request.user.groups.filter(name='delivery_crew').exists()
@@ -357,4 +360,12 @@ class OrderDetailView(generics.RetrieveUpdateDestroyAPIView):
         else:
             # Other users can only see their own orders
             return Order.objects.filter(user=user)
+        
+#class UserViewSet(viewsets.ModelViewSet):
+   #queryset = User.objects.all() 
+   #serializer_class = UserSerializer
+   #permission_classes = [permissions.IsAuthenticated] 
+
+
+
 

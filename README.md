@@ -12,7 +12,7 @@ You can use the following API paths for testing purposes using Insomnia or just 
 /api/token/token/login/ 
 
 # to login and auth get token
-api/token/
+api-token-auth/
 
 # menu items
 /api/menu/

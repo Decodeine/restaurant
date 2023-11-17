@@ -3,3 +3,5 @@ superuser=bistroadmin password=lemon@786!
 manager=Dele password=ricardo@123 token=9afdc9c101055020d58de22f82fe1853d0a02e55
 users/customer=newuser password=ricardo@123 token=d5ebdbbcc8d8268506f0785a04807f49150c2bf3
 delivery_crew=Michael  password=ricardo@123 token=9164f3a9e7a76eef18d99e24b56373b968722288
+ <!-- <a href="{% url 'restaurant:api_menu' %}">see our new Menu</a>--
+ <a href="{% url 'book' %}">Book your table now</a>

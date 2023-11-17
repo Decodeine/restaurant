@@ -9,9 +9,10 @@ router = routers.DefaultRouter()
 
 # Register the BookingViewSet with the router
 router.register(r'tables', views.BookingViewSet,basename='tables')
+
 app_name = 'restaurant'
 urlpatterns = [
-    path('', views.home, name="home"),
+    path('home', views.home, name="home"),
     path('about/', views.about, name="about"),
     path('book/', views.book, name="book"), 
     path('bookings', views.bookings, name='bookings'),

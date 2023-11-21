@@ -1,4 +1,4 @@
-from django.http import HttpResponse
+from django.http import HttpResponse,JsonResponse
 from django.shortcuts import render
 from .forms import BookingForm
 from .models import Menu, Category,Cart,Order,OrderItem
@@ -19,6 +19,52 @@ from django.core import serializers
 from django.views.decorators.csrf import csrf_exempt
 from datetime import datetime
 import json
+from django.views import View
+import requests
+
+
+class RegistrationView(View):
+    def get(self, request, *args, **kwargs):
+        return render(request, 'registration.html')
+
+    def post(self, request, *args, **kwargs):
+        # Extract user registration data from the form
+        
+        email = request.POST.get('email')
+        username = request.POST.get('username')
+        password = request.POST.get('password')
+
+        # Djoser registration endpoint URL
+        djoser_registration_url ='http://localhost:8000/api/users/'  
+
+        # Data to be sent to Djoser registration endpoint
+        registration_data = {
+            
+            'email': email,
+            'username': username,
+            'password': password,
+        }
+
+        # Make a POST request to Djoser registration endpoint
+        response = requests.post(djoser_registration_url, data=registration_data)
+
+        # Check the response from Djoser
+        if response.status_code == 201:  # Successful registration
+            response_data = {
+                'message': 'Registration successful',
+                'data': response.json(),  # Include any additional data from the response
+            }
+        else:  # Registration failed
+            response_data = {
+                'message': 'Registration failed',
+                'errors': response.json(),  # Include any error messages from the response
+            }
+
+        return JsonResponse(response_data)
+
+
+
+
 
 
 class IsManagerOrReadOnly(permissions.BasePermission):
@@ -37,7 +83,7 @@ class BookingViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     
     queryset = Booking.objects.all()
-    
+
 class IsDeliveryCrew(permissions.BasePermission):
     def has_permission(self, request, view):
         return request.user and request.user.groups.filter(name='delivery_crew').exists()
@@ -112,10 +158,10 @@ class CategoriesView(generics.ListCreateAPIView):
     queryset = Category.objects.all()
     serializer_class = CategorySerializer
 
-class YourPaginationClass(PageNumberPagination):
+'''class YourPaginationClass(PageNumberPagination):
     page_size = 5  # Number of items per page
     page_size_query_param = 'page'
-    max_page_size = 50
+    max_page_size = 50'''
 
 class MenuItemsView(generics.ListCreateAPIView):
     queryset = Menu.objects.all()
@@ -123,7 +169,7 @@ class MenuItemsView(generics.ListCreateAPIView):
     ordering_fields = ['price', 'inventory']
     filterset_fields = ['price', 'inventory']
     search_fields = ['name']
-    pagination_class = YourPaginationClass
+    #pagination_class = YourPaginationClass
     permission_classes = [IsManagerOrReadOnly]
 
 class SingleMenuItemView(generics.RetrieveUpdateDestroyAPIView):
@@ -132,67 +178,7 @@ class SingleMenuItemView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = [IsManagerOrReadOnly]  
 
 
-@api_view(['GET', 'POST'])
-@permission_classes([IsManagerOrReadOnly])
-def manager_users(request):
-    if request.method == 'GET':
-        # Retrieve all users in the 'manager' group
-        managers = User.objects.filter(groups__name='manager')
-        manager_data = [{'id': manager.id, 'username': manager.username} for manager in managers]
-        return Response(manager_data)
 
-    elif request.method == 'POST':
-        # Assign the user in the payload to the 'manager' group
-        try:
-            user_id = request.data['user_id']
-            user = User.objects.get(pk=user_id)
-        except (KeyError, User.DoesNotExist):
-            return Response({'error': 'Invalid user_id'}, status=status.HTTP_400_BAD_REQUEST)
-
-        manager_group, created = Group.objects.get_or_create(name='manager')
-        user.groups.add(manager_group)
-        return Response(status=status.HTTP_201_CREATED)
-
-@api_view(['DELETE'])
-@permission_classes([IsManagerOrReadOnly])
-def remove_manager_user(request, user_id):
-    user = get_object_or_404(User, pk=user_id)
-    manager_group = get_object_or_404(Group, name='manager')
-    user.groups.remove(manager_group)
-    return Response(status=status.HTTP_200_OK)
-
-
-
-@api_view(['GET', 'POST'])
-@permission_classes([IsManagerOrReadOnly])
-def delivery_crew_users(request):
-    # Similar implementation for 'delivery_crew' group
-    if request.method == 'GET':
-        # Retrieve all users in the 'delivery_crew' group
-        delivery_crew = User.objects.filter(groups__name='Delivery_crew')
-        delivery_crew_data = [{'id': user.id, 'username': user.username} for user in delivery_crew]
-        return Response(delivery_crew_data)
-
-    elif request.method == 'POST':
-        # Assign the user in the payload to the 'delivery_crew' group
-        try:
-            user_id = request.data['user_id']
-            user = User.objects.get(pk=user_id)
-        except (KeyError, User.DoesNotExist):
-            return Response({'error': 'Invalid user_id'}, status=status.HTTP_400_BAD_REQUEST)
-
-        delivery_crew_group, created = Group.objects.get_or_create(name='Delivery_crew')
-        user.groups.add(delivery_crew_group)
-        return Response(status=status.HTTP_201_CREATED)
-
-@api_view(['DELETE'])
-@permission_classes([IsManagerOrReadOnly])
-def remove_delivery_crew_user(request, user_id):
-    # Remove the user with the given user_id from the 'delivery_crew' group
-    user = get_object_or_404(User, pk=user_id)
-    delivery_crew_group = get_object_or_404(Group, name='Delivery_crew')
-    user.groups.remove(delivery_crew_group)
-    return Response(status=status.HTTP_200_OK)
 
 
 class CartMenuItemsView(generics.ListCreateAPIView):
@@ -365,6 +351,69 @@ class OrderDetailView(generics.RetrieveUpdateDestroyAPIView):
    #queryset = User.objects.all() 
    #serializer_class = UserSerializer
    #permission_classes = [permissions.IsAuthenticated] 
+
+
+@api_view(['GET', 'POST'])
+@permission_classes([IsManagerOrReadOnly])
+def manager_users(request):
+    if request.method == 'GET':
+        # Retrieve all users in the 'manager' group
+        managers = User.objects.filter(groups__name='manager')
+        manager_data = [{'id': manager.id, 'username': manager.username} for manager in managers]
+        return Response(manager_data)
+
+    elif request.method == 'POST':
+        # Assign the user in the payload to the 'manager' group
+        try:
+            user_id = request.data['user_id']
+            user = User.objects.get(pk=user_id)
+        except (KeyError, User.DoesNotExist):
+            return Response({'error': 'Invalid user_id'}, status=status.HTTP_400_BAD_REQUEST)
+
+        manager_group, created = Group.objects.get_or_create(name='manager')
+        user.groups.add(manager_group)
+        return Response(status=status.HTTP_201_CREATED)
+
+@api_view(['DELETE'])
+@permission_classes([IsManagerOrReadOnly])
+def remove_manager_user(request, user_id):
+    user = get_object_or_404(User, pk=user_id)
+    manager_group = get_object_or_404(Group, name='manager')
+    user.groups.remove(manager_group)
+    return Response(status=status.HTTP_200_OK)
+
+
+
+@api_view(['GET', 'POST'])
+@permission_classes([IsManagerOrReadOnly])
+def delivery_crew_users(request):
+    # Similar implementation for 'delivery_crew' group
+    if request.method == 'GET':
+        # Retrieve all users in the 'delivery_crew' group
+        delivery_crew = User.objects.filter(groups__name='Delivery_crew')
+        delivery_crew_data = [{'id': user.id, 'username': user.username} for user in delivery_crew]
+        return Response(delivery_crew_data)
+
+    elif request.method == 'POST':
+        # Assign the user in the payload to the 'delivery_crew' group
+        try:
+            user_id = request.data['user_id']
+            user = User.objects.get(pk=user_id)
+        except (KeyError, User.DoesNotExist):
+            return Response({'error': 'Invalid user_id'}, status=status.HTTP_400_BAD_REQUEST)
+
+        delivery_crew_group, created = Group.objects.get_or_create(name='Delivery_crew')
+        user.groups.add(delivery_crew_group)
+        return Response(status=status.HTTP_201_CREATED)
+
+@api_view(['DELETE'])
+@permission_classes([IsManagerOrReadOnly])
+def remove_delivery_crew_user(request, user_id):
+    # Remove the user with the given user_id from the 'delivery_crew' group
+    user = get_object_or_404(User, pk=user_id)
+    delivery_crew_group = get_object_or_404(Group, name='Delivery_crew')
+    user.groups.remove(delivery_crew_group)
+    return Response(status=status.HTTP_200_OK)
 
 
 

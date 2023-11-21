@@ -2,7 +2,8 @@ from django.urls import path,include, re_path
 from . import views
 from django.conf import settings
 from django.conf.urls.static import static
-from .views import manager_users, remove_manager_user, delivery_crew_users, remove_delivery_crew_user
+from .views import manager_users, remove_manager_user, delivery_crew_users, remove_delivery_crew_user,RegistrationView
+
 from rest_framework import routers
 
 router = routers.DefaultRouter()
@@ -14,6 +15,7 @@ app_name = 'restaurant'
 urlpatterns = [
     path('home', views.home, name="home"),
     path('about/', views.about, name="about"),
+    path('registration/', RegistrationView.as_view(), name='registration'),
     path('book/', views.book, name="book"), 
     path('bookings', views.bookings, name='bookings'),
     path('api/menu/', views.MenuItemsView.as_view(), name="MenuItemsView"),
@@ -27,6 +29,5 @@ urlpatterns = [
     path('api/cart/menu',views.CartMenuItemsView.as_view()),
     path('api/orders',views.OrderListView.as_view()),
     path('api/orders/<int:pk>/',views.OrderDetailView.as_view()),
-    # Add other URLs as needed
     path('restaurant/booking/', include(router.urls)),
 ]

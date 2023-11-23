@@ -172,10 +172,21 @@ class MenuItemsView(generics.ListCreateAPIView):
     #pagination_class = YourPaginationClass
     permission_classes = [IsManagerOrReadOnly]
 
+    def get(self, request, *args, **kwargs):
+        menu_items = self.get_queryset()
+        serializer = self.get_serializer(menu_items, many=True)
+        return render(request, 'menu.html', {'menu_items': serializer.data})
+
+
 class SingleMenuItemView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Menu.objects.all()
     serializer_class = MenuItemSerializer
     permission_classes = [IsManagerOrReadOnly]  
+
+    def get(self, request, *args, **kwargs):
+        menu_item = self.get_object()
+        serializer = self.get_serializer(menu_item)
+        return render(request, 'menu_item.html', {'menu_item': serializer.data})
 
 
 

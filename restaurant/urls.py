@@ -2,7 +2,7 @@ from django.urls import path,include, re_path
 from . import views
 from django.conf import settings
 from django.conf.urls.static import static
-from .views import manager_users, remove_manager_user, delivery_crew_users, remove_delivery_crew_user,RegistrationView
+from .views import manager_users, remove_manager_user, delivery_crew_users, remove_delivery_crew_user,RegistrationView,CustomTokenCreateView
 
 from rest_framework import routers
 
@@ -30,4 +30,5 @@ urlpatterns = [
     path('api/orders',views.OrderListView.as_view()),
     path('api/orders/<int:pk>/',views.OrderDetailView.as_view()),
     path('restaurant/booking/', include(router.urls)),
+    path('login', CustomTokenCreateView.as_view(), name='login'),
 ]

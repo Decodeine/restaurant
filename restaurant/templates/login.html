@@ -1,0 +1,20 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+    <h1>User Login</h1>
+    {% if error_message %}
+        <p style="color: red;">{{ error_message }}</p>
+    {% endif %}
+    <form id="loginForm" method="post" action="{% url 'restaurant:login' %}">
+        {% csrf_token %}
+
+        <label for="username">Username:</label>
+        <input type="text" id="username" name="username" autocomplete="username" required>
+
+        <label for="password">Password:</label>
+        <input type="password" id="password" name="password" autocomplete="new-password" required>
+
+        <button type="submit">Login</button>
+    </form>
+{% endblock %}

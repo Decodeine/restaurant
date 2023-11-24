@@ -1,5 +1,5 @@
 from django.http import HttpResponse,JsonResponse
-from django.shortcuts import render
+from django.shortcuts import render,redirect
 from .forms import BookingForm
 from .models import Menu, Category,Cart,Order,OrderItem
 from rest_framework import generics
@@ -21,15 +21,48 @@ from datetime import datetime
 import json
 from django.views import View
 import requests
+from djoser.views import TokenCreateView
 
+class CustomTokenCreateView(TokenCreateView):
+    template_name = 'login.html'
 
-class RegistrationView(View):
     def get(self, request, *args, **kwargs):
-        return render(request, 'registration.html')
+        return render(request, self.template_name)
 
+    
     def post(self, request, *args, **kwargs):
         # Extract user registration data from the form
         
+        username = request.POST.get('username')
+        password = request.POST.get('password')
+
+        # Djoser registration endpoint URL
+        djoser_login_url ='http://localhost:8000/api/token/login'  
+
+        # Data to be sent to Djoser registration endpoint
+        registration_data = {
+            
+        
+            'username': username,
+            'password': password,
+        }
+        
+        response = requests.post(djoser_login_url, data=registration_data)
+        if response.status_code == 200:  # Assuming a successful login returns status code 200
+            return redirect('restaurant:home')  # Adjust the 'home' to your actual home URL name
+        else:
+            # Optionally handle other cases, such as incorrect login credentials
+            return render(request, self.template_name, {'error_message': 'Login failed. Please try again.'})
+
+
+class RegistrationView(View):
+    template_name = 'registration.html'
+
+    def get(self, request, *args, **kwargs):
+        return render(request, self.template_name)
+
+    def post(self, request, *args, **kwargs):
+        # Extract user registration data from the form
         email = request.POST.get('email')
         username = request.POST.get('username')
         password = request.POST.get('password')
@@ -39,7 +72,6 @@ class RegistrationView(View):
 
         # Data to be sent to Djoser registration endpoint
         registration_data = {
-            
             'email': email,
             'username': username,
             'password': password,
@@ -60,7 +92,8 @@ class RegistrationView(View):
                 'errors': response.json(),  # Include any error messages from the response
             }
 
-        return JsonResponse(response_data)
+        return render(request, self.template_name, response_data)
+
 
 
 

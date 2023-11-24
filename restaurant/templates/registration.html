@@ -3,6 +3,9 @@
 
 {% block content %}
     <h1>User Registration</h1>
+    {% if message %}
+        <p {% if status_code == 201 %}style=color: green; {% else %} red;{% endif %};>{{ message }}</p>
+    {% endif %}
     <form id="registrationForm" method="post" action="{% url 'restaurant:registration' %}">
         {% csrf_token %}
         

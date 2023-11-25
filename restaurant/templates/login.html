@@ -3,9 +3,14 @@
 
 {% block content %}
     <h1>User Login</h1>
-    {% if error_message %}
-        <p style="color: red;">{{ error_message }}</p>
+    {% if success_message %}
+    <p style="color: green;">{{ success_message }}</p>
     {% endif %}
+
+    {% if error_message %}
+    <p style="color: red;">{{ error_message }}</p>
+    {% endif %}
+
     <form id="loginForm" method="post" action="{% url 'restaurant:login' %}">
         {% csrf_token %}
 

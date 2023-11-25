@@ -3,12 +3,18 @@
 
 {% block content %}
     <h1>User Registration</h1>
-    {% if message %}
-        <p {% if status_code == 201 %}style=color: green; {% else %} red;{% endif %};>{{ message }}</p>
+
+    {% if success_message %}
+        <p style="color: green;">{{ success_message }}</p>
     {% endif %}
+
+    {% if error_message %}
+        <p style="color: red;">{{ error_message }}</p>
+    {% endif %}
+
     <form id="registrationForm" method="post" action="{% url 'restaurant:registration' %}">
         {% csrf_token %}
-        
+
         <label for="email">Email:</label>
         <input type="email" id="email" name="email" autocomplete="email" required>
 

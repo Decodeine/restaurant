@@ -48,12 +48,13 @@ class CustomTokenCreateView(TokenCreateView):
         }
         
         response = requests.post(djoser_login_url, data=registration_data)
-        if response.status_code == 200:  # Assuming a successful login returns status code 200
-            return redirect('restaurant:home')  # Adjust the 'home' to your actual home URL name
-        else:
-            # Optionally handle other cases, such as incorrect login credentials
-            return render(request, self.template_name, {'error_message': 'Login failed. Please try again.'})
+                # Include the status code and response text in the response_data
+        if response.status_code == 201:  # Successful registration
+            return render(request, self.template_name, {'success_message': 'Login successful'})
+        else:  # Registration failed
+            return render(request, self.template_name, {'error_message': response.text})
 
+    
 
 class RegistrationView(View):
     template_name = 'registration.html'
@@ -68,7 +69,7 @@ class RegistrationView(View):
         password = request.POST.get('password')
 
         # Djoser registration endpoint URL
-        djoser_registration_url ='http://localhost:8000/api/users/'  
+        djoser_registration_url = 'http://localhost:8000/api/users/'
 
         # Data to be sent to Djoser registration endpoint
         registration_data = {
@@ -82,17 +83,10 @@ class RegistrationView(View):
 
         # Check the response from Djoser
         if response.status_code == 201:  # Successful registration
-            response_data = {
-                'message': 'Registration successful',
-                'data': response.json(),  # Include any additional data from the response
-            }
+            return render(request, self.template_name, {'success_message': 'Registration successful'})
         else:  # Registration failed
-            response_data = {
-                'message': 'Registration failed',
-                'errors': response.json(),  # Include any error messages from the response
-            }
+            return render(request, self.template_name, {'error_message': response.text})
 
-        return render(request, self.template_name, response_data)
 
 
 

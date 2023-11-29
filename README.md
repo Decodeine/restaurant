@@ -9,7 +9,7 @@ You can use the following API paths for testing purposes using Insomnia or just 
 /api/users/ 
 
 # to login using JDOSER endpoint
-/api/token/token/login/ 
+/api/token/login/ 
 
 # to login and auth get token
 api-token-auth/

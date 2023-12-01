@@ -1,0 +1,59 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+    <h1>Your Cart</h1>
+
+    {% if cart_items %}
+        <ul>
+            {% for cart_item in cart_items %}
+                <li>
+                    {{ cart_item.menu.name }} - Quantity: {{ cart_item.quantity }}
+                    <!-- Add additional information as needed -->
+                </li>
+            {% endfor %}
+        </ul>
+    {% else %}
+        <p>Your cart is empty.</p>
+    {% endif %}
+
+    <!-- Add a form to allow users to add items to the cart -->
+    <form id="addToCartForm">
+        {% csrf_token %}
+        <label for="menu_item">Menu Item:</label>
+        <select name="menu_item" id="menu_item">
+            <!-- Populate the menu items dynamically based on your model -->
+            {% for menu_item in menu_items %}
+                <option value="{{ menu_item.id }}">{{ menu_item.name }}</option>
+            {% endfor %}
+        </select>
+
+        <label for="quantity">Quantity:</label>
+        <input type="number" name="quantity" id="quantity" value="1" min="1">
+
+        <button type="button" onclick="addToCart()">Add to Cart</button>
+    </form>
+
+    <script>
+        function addToCart() {
+            const form = document.getElementById('addToCartForm');
+            const formData = new FormData(form);
+
+            fetch('{% url "restaurant:api/cart/add/" %}', {
+                method: 'POST',
+                body: formData,
+            })
+            .then(response => response.json())
+            .then(data => {
+                // Handle the response data if needed
+                console.log('Item added to cart:', data);
+
+                // Optionally update the cart display without refreshing the page
+                // You can use JavaScript to update the cart content dynamically
+            })
+            .catch(error => {
+                console.error('Error adding item to cart:', error);
+            });
+        }
+    </script>
+{% endblock %}

@@ -49,9 +49,9 @@ class CustomTokenCreateView(TokenCreateView):
         
         response = requests.post(djoser_login_url, data=registration_data)
                 # Include the status code and response text in the response_data
-        if response.status_code == 201:  # Successful registration
+        if response.status_code == 201:  # Successful login
             return render(request, self.template_name, {'success_message': 'Login successful'})
-        else:  # Registration failed
+        else:  # login failed
             return render(request, self.template_name, {'error_message': response.text})
 
     
@@ -89,6 +89,11 @@ class RegistrationView(View):
 
 
 
+def home(request):
+    return render(request, 'index.html')
+
+def about(request):
+    return render(request, 'about.html')
 
 
 
@@ -111,37 +116,6 @@ class BookingViewSet(viewsets.ModelViewSet):
     
     queryset = Booking.objects.all()
 
-class IsDeliveryCrew(permissions.BasePermission):
-    def has_permission(self, request, view):
-        return request.user and request.user.groups.filter(name='delivery_crew').exists()
-    
-class IsOrderOwner(permissions.BasePermission):
-    def has_object_permission(self, request, view, obj):
-        # Check if the user is the owner of the order
-        return obj.user == request.user
-
-
-
-
-
-class RatingsView(generics.ListCreateAPIView):
-    throttle_classes = [AnonRateThrottle, UserRateThrottle]
-
-    queryset = Rating.objects.all()
-    serializer_class = RatingSerializer
-
-    def get_permissions(self):
-        if(self.request.method=='GET'):
-            return []
-
-        return [IsAuthenticated()]
-
-# Create your views here.
-def home(request):
-    return render(request, 'index.html')
-
-def about(request):
-    return render(request, 'about.html')
 
 def book(request):
     form = BookingForm()
@@ -181,14 +155,14 @@ def reservations(request):
     booking_json = serializers.serialize('json', bookings)
     return render(request, 'bookings.html',{"bookings":booking_json})
 
-class CategoriesView(generics.ListCreateAPIView):
-    queryset = Category.objects.all()
-    serializer_class = CategorySerializer
 
-'''class YourPaginationClass(PageNumberPagination):
+
+
+class YourPaginationClass(PageNumberPagination):
     page_size = 5  # Number of items per page
     page_size_query_param = 'page'
-    max_page_size = 50'''
+    max_page_size = 50
+
 
 class MenuItemsView(generics.ListCreateAPIView):
     queryset = Menu.objects.all()
@@ -196,7 +170,7 @@ class MenuItemsView(generics.ListCreateAPIView):
     ordering_fields = ['price', 'inventory']
     filterset_fields = ['price', 'inventory']
     search_fields = ['name']
-    #pagination_class = YourPaginationClass
+    pagination_class = YourPaginationClass
     permission_classes = [IsManagerOrReadOnly]
 
     def get(self, request, *args, **kwargs):
@@ -214,6 +188,49 @@ class SingleMenuItemView(generics.RetrieveUpdateDestroyAPIView):
         menu_item = self.get_object()
         serializer = self.get_serializer(menu_item)
         return render(request, 'menu_item.html', {'menu_item': serializer.data})
+    
+class CategoriesView(generics.ListCreateAPIView):
+    queryset = Category.objects.all()
+    serializer_class = CategorySerializer
+
+
+class RatingsView(generics.ListCreateAPIView):
+    throttle_classes = [AnonRateThrottle, UserRateThrottle]
+
+    queryset = Rating.objects.all()
+    serializer_class = RatingSerializer
+
+    def get_permissions(self):
+        if(self.request.method=='GET'):
+            return []
+
+        return [IsAuthenticated()]
+
+class CartAddItemView(generics.CreateAPIView):
+    serializer_class = CartSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+
+    def create(self, request, *args, **kwargs):
+        menu_item_id = request.data.get('menu')
+        quantity = request.data.get('quantity', 1)
+
+        if not menu_item_id:
+            return Response({'error': 'Menu item ID is required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            menu_item = Menu.objects.get(id=menu_item_id)
+        except Menu.DoesNotExist:
+            return Response({'error': 'Menu item not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = self.get_serializer(data={'menu': menu_item.id, 'quantity': quantity})
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
 
 
 
@@ -247,10 +264,17 @@ class CartMenuItemsView(generics.ListCreateAPIView):
         # Delete all menu items created by the current user
         Cart.objects.filter(user=request.user).delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+    
 
-
-
-
+class IsDeliveryCrew(permissions.BasePermission):
+    def has_permission(self, request, view):
+        return request.user and request.user.groups.filter(name='delivery_crew').exists()
+    
+class IsOrderOwner(permissions.BasePermission):
+    def has_object_permission(self, request, view, obj):
+        # Check if the user is the owner of the order
+        return obj.user == request.user
+ 
 
 class OrderListView(generics.ListCreateAPIView):
     throttle_classes = [AnonRateThrottle, UserRateThrottle]

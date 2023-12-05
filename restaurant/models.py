@@ -20,6 +20,8 @@ class Rating(models.Model):
       return self.first_name + ' ' + self.last_name'''
 
 class Booking(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+
     first_name = models.CharField(max_length=200)
     reservation_date = models.DateField()
     reservation_slot = models.SmallIntegerField(default=10)
@@ -51,6 +53,7 @@ class Category(models.Model):
 
 class Menu(models.Model):
     name = models.CharField(max_length=200, db_index=True)
+    id = models.AutoField(primary_key=True) 
     price = models.DecimalField(max_digits=6, decimal_places=2, db_index=True)
     menu_item_description = models.TextField(max_length=1000, default='')  # Specify a max_length
     inventory = models.SmallIntegerField(db_index=True)

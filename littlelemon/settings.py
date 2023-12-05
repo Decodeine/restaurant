@@ -46,7 +46,10 @@ INSTALLED_APPS = [
 
 ]
 DJOSER = {
-    "USER_ID_FIELD" : "username"
+    "USER_ID_FIELD" : "username",
+    
+    'BASE_PATH': 'http://localhost:8000',  
+
 }
 
 
@@ -161,14 +164,21 @@ REST_FRAMEWORK = {
         'rest_framework.authentication.SessionAuthentication',
     ),
         'DEFAULT_THROTTLE_RATES': {
-        'anon': '5/minute',  # Throttle for anonymous users
-        'user': '10/minute',  # Throttle for authenticated users
+        'anon': '10/minute',  # Throttle for anonymous users
+        'user': '20/minute',  # Throttle for authenticated users
     },
     'DEFAULT_THROTTLE_CLASSES': [
         'rest_framework.throttling.AnonRateThrottle',
         'rest_framework.throttling.UserRateThrottle',
     ],
 }
+SESSION_ENGINE = 'django.contrib.sessions.backends.signed_cookies'
+SESSION_COOKIE_SECURE = True
+# Example: Set a reasonable session timeout (in seconds)
+SESSION_COOKIE_AGE = 3600  # 1 hour
+
+# Set the session cookie name
+SESSION_COOKIE_NAME = 'restaurant'
 
 
 

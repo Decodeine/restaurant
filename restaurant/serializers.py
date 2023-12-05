@@ -4,7 +4,7 @@ from rest_framework.validators import UniqueValidator
 import bleach
 from rest_framework.validators import UniqueTogetherValidator
 from django.contrib.auth.models import User,Group
-from rest_framework import serializers
+
 
 
 class BookingSerializer(serializers.ModelSerializer):
@@ -36,10 +36,12 @@ class OrderSerializer(serializers.ModelSerializer):
         fields = ['id', 'user', 'order_items', 'status', 'delivery_crew']
 
 class CartSerializer(serializers.ModelSerializer):
+
+
     class Meta:
         model = Cart
         fields = ['id', 'user', 'menu', 'quantity', 'unit_price', 'price']
-        read_only_fields = ['id', 'user']  
+        read_only_fields = ['id', 'user']
 
 
 class BookingSerializer(serializers.ModelSerializer):

@@ -3,13 +3,15 @@ from django.shortcuts import render,redirect
 from .forms import BookingForm
 from .models import Menu, Category,Cart,Order,OrderItem
 from rest_framework import generics
-from .serializers import MenuItemSerializer, CategorySerializer,RatingSerializer,CartSerializer,OrderSerializer,OrderItemSerializer
+from .serializers import MenuItemSerializer, CategorySerializer,RatingSerializer,CartSerializer,OrderSerializer,OrderItemSerializer,BookingSerializer
 from rest_framework.pagination import PageNumberPagination
 from .models import Rating,Booking
 from rest_framework import permissions
 from django.contrib.auth.models import User,Group
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.authentication import TokenAuthentication, SessionAuthentication
+
 from rest_framework.response import Response
 from rest_framework import status, viewsets,generics
 from django.shortcuts import get_object_or_404
@@ -22,39 +24,32 @@ import json
 from django.views import View
 import requests
 from djoser.views import TokenCreateView
+from django.conf import settings
+from django.contrib.auth.decorators import login_required
+from django.contrib.auth import authenticate, login
 
-class CustomTokenCreateView(TokenCreateView):
+
+class CustomTokenCreateView(View):
     template_name = 'login.html'
 
     def get(self, request, *args, **kwargs):
         return render(request, self.template_name)
 
-    
     def post(self, request, *args, **kwargs):
-        # Extract user registration data from the form
-        
         username = request.POST.get('username')
         password = request.POST.get('password')
 
-        # Djoser registration endpoint URL
-        djoser_login_url ='http://localhost:8000/api/token/login'  
+        user = authenticate(request, username=username, password=password)
 
-        # Data to be sent to Djoser registration endpoint
-        registration_data = {
-            
-        
-            'username': username,
-            'password': password,
-        }
-        
-        response = requests.post(djoser_login_url, data=registration_data)
-                # Include the status code and response text in the response_data
-        if response.status_code == 201:  # Successful login
-            return render(request, self.template_name, {'success_message': 'Login successful'})
-        else:  # login failed
-            return render(request, self.template_name, {'error_message': response.text})
+        if user:
+            # If the credentials are correct, log in the user
+            login(request, user)
 
-    
+            # Redirect to a secure and trusted URL after successful login
+            return redirect('restaurant:home')
+        else:
+            # If the credentials are incorrect, provide an error message
+            return render(request, self.template_name, {'error_message': 'Incorrect credentials. Please try again.'})
 
 class RegistrationView(View):
     template_name = 'registration.html'
@@ -90,6 +85,12 @@ class RegistrationView(View):
 
 
 def home(request):
+    print(f"Request headers: {request.headers}")
+
+    print(f"Session data: {request.session.items()}")
+    print(f"User: {request.user}")
+    print(f"Is authenticated? {request.user.is_authenticated}")
+
     return render(request, 'index.html')
 
 def about(request):
@@ -113,8 +114,18 @@ class IsManagerOrReadOnly(permissions.BasePermission):
 
 class BookingViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
+    authentication_classes = [TokenAuthentication, SessionAuthentication]
+
     
     queryset = Booking.objects.all()
+    serializer_class = BookingSerializer
+
+    def list(self, request, *args, **kwargs):
+        # Print statement to check if the session token is present in the headers
+        print(f"Request Headers: {request.headers}")
+
+        return super().list(request, *args, **kwargs)
+
 
 
 def book(request):
@@ -126,13 +137,15 @@ def book(request):
     context = {'form': form}
     return render(request, 'book.html', context)
 
+from django.contrib.auth.decorators import user_passes_test
+
 @csrf_exempt
 def bookings(request):
     if request.method == 'POST':
         data = json.load(request)
         exist = Booking.objects.filter(reservation_date=data['reservation_date']).filter(
             reservation_slot=data['reservation_slot']).exists()
-        if exist==False:
+        if exist == False:
             booking = Booking(
                 first_name=data['first_name'],
                 reservation_date=data['reservation_date'],
@@ -141,19 +154,21 @@ def bookings(request):
             booking.save()
         else:
             return HttpResponse("{'error':1}", content_type='application/json')
-    
-    date = request.GET.get('date',datetime.today().date())
 
-    bookings = Booking.objects.all().filter(reservation_date=date)
+    date = request.GET.get('date', datetime.today().date())
+
+    # Check if the user is a manager
+    if request.user.is_staff:
+        # If the user is a manager, return all bookings
+        bookings = Booking.objects.all().filter(reservation_date=date)
+    else:
+        # If the user is not a manager, return only the user's bookings
+        bookings = Booking.objects.filter(reservation_date=date, user=request.user)
+
     booking_json = serializers.serialize('json', bookings)
 
     return HttpResponse(booking_json, content_type='application/json')
 
-def reservations(request):
-    date = request.GET.get('date',datetime.today().date())
-    bookings = Booking.objects.all()
-    booking_json = serializers.serialize('json', bookings)
-    return render(request, 'bookings.html',{"bookings":booking_json})
 
 
 
@@ -175,7 +190,10 @@ class MenuItemsView(generics.ListCreateAPIView):
 
     def get(self, request, *args, **kwargs):
         menu_items = self.get_queryset()
+        print("Primary keys of menu items:", [item.pk for item in menu_items])
+
         serializer = self.get_serializer(menu_items, many=True)
+        
         return render(request, 'menu.html', {'menu_items': serializer.data})
 
 
@@ -188,6 +206,7 @@ class SingleMenuItemView(generics.RetrieveUpdateDestroyAPIView):
         menu_item = self.get_object()
         serializer = self.get_serializer(menu_item)
         return render(request, 'menu_item.html', {'menu_item': serializer.data})
+
     
 class CategoriesView(generics.ListCreateAPIView):
     queryset = Category.objects.all()
@@ -205,13 +224,25 @@ class RatingsView(generics.ListCreateAPIView):
             return []
 
         return [IsAuthenticated()]
+    
+
+def get_or_create_cart_entry(user, menu_item):
+    existing_cart_entry = Cart.objects.filter(user=user, menu=menu_item).first()
+
+    if existing_cart_entry:
+        # Update the quantity if the cart entry already exists
+        existing_cart_entry.quantity += 1  
+        existing_cart_entry.save()
+        return existing_cart_entry, False  # Entry already existed
+    else:
+        # Create a new cart entry if it doesn't exist
+        new_cart_entry = Cart.objects.create(user=user, menu=menu_item, quantity=1)
+        return new_cart_entry, True  # New entry created
+
 
 class CartAddItemView(generics.CreateAPIView):
     serializer_class = CartSerializer
     permission_classes = [permissions.IsAuthenticated]
-
-    def perform_create(self, serializer):
-        serializer.save(user=self.request.user)
 
     def create(self, request, *args, **kwargs):
         menu_item_id = request.data.get('menu')
@@ -225,12 +256,18 @@ class CartAddItemView(generics.CreateAPIView):
         except Menu.DoesNotExist:
             return Response({'error': 'Menu item not found.'}, status=status.HTTP_404_NOT_FOUND)
 
-        serializer = self.get_serializer(data={'menu': menu_item.id, 'quantity': quantity})
-        serializer.is_valid(raise_exception=True)
-        self.perform_create(serializer)
+        # Validate quantity
+        if not isinstance(quantity, int) or quantity <= 0:
+            return Response({'error': 'Invalid quantity.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
+        # Use the helper function to get or create a cart entry
+        cart_entry, new_entry_created = get_or_create_cart_entry(request.user, menu_item)
 
+        # Adjust the response based on whether a new entry was created
+        status_code = status.HTTP_201_CREATED if new_entry_created else status.HTTP_200_OK
+
+        serializer = CartSerializer(cart_entry)
+        return Response(serializer.data, status=status_code)
 
 
 
@@ -241,25 +278,28 @@ class CartMenuItemsView(generics.ListCreateAPIView):
 
     permission_classes = [IsAuthenticated]
     serializer_class = CartSerializer
+    template_name = 'cart.html'
 
-    def get_queryset(self):
-        return Cart.objects.filter(user=self.request.user).order_by('-created_at')  
+
+    def get(self, request, *args, **kwargs):
+        cart_items = Cart.objects.filter(user=request.user).order_by('-created_at')
+        context = {'cart_items': cart_items}
+        return render(request, self.template_name, context)
+
+ 
 
     def perform_create(self, serializer):
-        # Check if a cart entry already exists for the given menu item and user
-        existing_cart_entry = Cart.objects.filter(user=self.request.user, menu=serializer.validated_data['menu']).first()
+        menu_item = serializer.validated_data['menu']
 
-        if existing_cart_entry:
-            # Update the quantity if the cart entry already exists
-            existing_cart_entry.quantity += serializer.validated_data['quantity']
-            existing_cart_entry.save()
-            serializer = CartSerializer(existing_cart_entry)
-            return Response(serializer.data, status=status.HTTP_200_OK)
-        else:
-            # Create a new cart entry if it doesn't exist
-            serializer.save(user=self.request.user)
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        # Use the helper function to get or create a cart entry
+        cart_entry, new_entry_created = get_or_create_cart_entry(self.request.user, menu_item)
 
+        # Adjust the response based on whether a new entry was created
+        status_code = status.HTTP_201_CREATED if new_entry_created else status.HTTP_200_OK
+
+        serializer = CartSerializer(cart_entry)
+        return Response(serializer.data, status=status_code)
+    
     def destroy(self, request, *args, **kwargs):
         # Delete all menu items created by the current user
         Cart.objects.filter(user=request.user).delete()

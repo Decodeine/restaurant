@@ -1,19 +1,75 @@
 {% extends 'base.html' %}
 {% load static %}
+
 {% block content %}
-<h1>Menu</h1>
-<!--Begin col-->
-<div class="column">
-    {% for item in menu.menu %}
-    <p>
-        <a href="{% url 'menu' pk=item.pk %}">
-            {{ item.name }}
-            </a>
-        <span class="menu-price">
-            ${{ item.price }}.00
-        </span>
-    </p>
-    {% endfor %}
-</div>
-<!--End col-->
+    <h1>Menu</h1>
+    <!-- Begin col -->
+    <div class="column">
+        {% for item in menu_items %}
+            <div class="menu-item">
+                <p>
+                    <strong>{{ item.name }}</strong><br>
+                    Price: ${{ item.price }}
+                </p>
+                <div class="column">
+                    <!-- Set a fixed width and height for the image -->
+                    <img src="{% static 'img/menu_items/' %}{{ item.name }}.jpg" alt="{{ item.name }}" style="width: 100px; height: 100px;" />
+                </div>
+                <button class="menu-details-btn" data-pk="{{ item.id }}">View Details</button>
+                <button class="add-to-cart-btn" data-pk="{{ item.id }}">Add to Cart</button>
+            </div>
+        {% endfor %}
+    </div>
+    <!-- End col -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            var detailButtons = document.querySelectorAll('.menu-details-btn');
+            var addToCartButtons = document.querySelectorAll('.add-to-cart-btn');
+    
+            detailButtons.forEach(function (button) {
+                button.addEventListener('click', function () {
+                    var pk = button.getAttribute('data-pk');
+                    if (pk) {
+                        var url = "/menu/" + pk;
+                        window.location.href = url;
+                    } else {
+                        console.error('Invalid pk value:', pk);
+                    }
+                });
+            });
+    
+            addToCartButtons.forEach(function (button) {
+                button.addEventListener('click', function () {
+                    var pk = button.getAttribute('data-pk');
+                    if (pk) {
+                        // AJAX request to add item to the cart
+                        fetch("/api/cart/add/", {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-CSRFToken': '{{ csrf_token }}'
+                            },
+                            body: JSON.stringify({ menu: pk, quantity: 1 })
+                        })
+                        .then(response => {
+                            if (!response.ok) {
+                                throw new Error('Network response was not ok');
+                            }
+                            return response.json();
+                        })
+                        .then(data => {
+                            console.log('Item added to the cart:', data);
+                            // Optionally update the UI to reflect the change
+                        })
+                        .catch(error => {
+                            console.error('Error adding item to the cart:', error);
+                        });
+                    } else {
+                        console.error('Invalid pk value for Add to Cart:', pk);
+                    }
+                });
+            });
+        });
+    </script>
+    
 {% endblock %}

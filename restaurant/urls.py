@@ -18,6 +18,8 @@ urlpatterns = [
     path('registration/', RegistrationView.as_view(), name='registration'),
     path('book/', views.book, name="book"), 
     path('bookings', views.bookings, name='bookings'),
+    path('booking/', views.booking, name='booking'),
+
     
     #path('reservation', views.reservations, name='reservation'),
     path('menu/', views.MenuItemsView.as_view(), name="menu"),

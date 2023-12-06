@@ -10,12 +10,14 @@
         <!-- Begin col -->
         <div class="column">
           <ul>
-            {% for booking in bookings %}
-              <li>
-                <strong>Name:</strong> {{ booking.fields.first_name }}<br>
-                <strong>Date:</strong> {{ booking.fields.reservation_date }}<br>
-                <strong>Slot:</strong> {{ booking.fields.reservation_slot }}
-              </li>
+            {% for booking in booking_data %}
+              
+                <li>
+                  <strong>Name:</strong> {{ booking.first_name }}<br>
+                  <strong>Date:</strong> {{ booking.reservation_date }}<br>
+                  <strong>Slot:</strong> {{ booking.reservation_slot }}
+                </li>
+
             {% endfor %}
           </ul>
         </div>

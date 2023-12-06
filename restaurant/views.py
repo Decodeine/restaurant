@@ -137,7 +137,6 @@ def book(request):
     context = {'form': form}
     return render(request, 'book.html', context)
 
-from django.contrib.auth.decorators import user_passes_test
 
 @csrf_exempt
 def bookings(request):
@@ -168,6 +167,37 @@ def bookings(request):
     booking_json = serializers.serialize('json', bookings)
 
     return HttpResponse(booking_json, content_type='application/json')
+
+
+
+def booking(request):
+    date = request.GET.get('date', datetime.today().date())
+    user = request.user if request.user.is_authenticated else None
+
+    # Make a request to the 'bookings' view to get the booking data
+    response = bookings(request)
+    
+    if response.status_code == 200:
+        # Parse the JSON content
+        try:
+            booking_data = json.loads(response.content)
+        except json.JSONDecodeError:
+            return JsonResponse({'error': 'Unable to parse booking data'})
+
+        # Process the JSON data as needed for rendering
+        processed_data = [
+            {
+                'first_name': item['fields']['first_name'],
+                'reservation_date': item['fields']['reservation_date'],
+                'reservation_slot': item['fields']['reservation_slot'],
+            }
+            for item in booking_data
+        ]
+        
+        return render(request, 'bookings.html', {'booking_data': processed_data})
+    else:
+        # Handle the case where the 'bookings' view returns an error
+        return JsonResponse({'error': 'Unable to fetch booking data'})
 
 
 

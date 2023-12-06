@@ -20,7 +20,8 @@ class Rating(models.Model):
       return self.first_name + ' ' + self.last_name'''
 
 class Booking(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    user = models.ForeignKey(User, on_delete=models.CASCADE,null=True)
+
 
     first_name = models.CharField(max_length=200)
     reservation_date = models.DateField()

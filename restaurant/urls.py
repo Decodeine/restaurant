@@ -2,7 +2,7 @@ from django.urls import path,include, re_path
 from . import views
 from django.conf import settings
 from django.conf.urls.static import static
-from .views import manager_users, remove_manager_user, delivery_crew_users, remove_delivery_crew_user,RegistrationView,CustomTokenCreateView,CartAddItemView
+from .views import manager_users, remove_manager_user, delivery_crew_users, remove_delivery_crew_user,RegistrationView,CustomTokenCreateView,CartAddItemView,CartItemDetailView,CartMenuItemsView
 
 from rest_framework import routers
 
@@ -30,7 +30,8 @@ urlpatterns = [
     path('api/groups/manager/users/<int:user_id>/', remove_manager_user, name='remove_manager_user'),
     path('api/groups/delivery-crew/users/', delivery_crew_users, name='delivery_crew_users'),
     path('api/groups/delivery-crew/users/<int:user_id>/', remove_delivery_crew_user, name='remove_delivery_crew_user'),
-    path('api/cart/menu',views.CartMenuItemsView.as_view(), name='cart_menu'),
+    path('api/cart/',CartMenuItemsView.as_view(), name='cart_menu'),
+    path('api/cart/<int:pk>/', CartItemDetailView.as_view(), name='cart-item-detail'),
     path('api/orders',views.OrderListView.as_view()),
     path('api/orders/<int:pk>/',views.OrderDetailView.as_view()),
     path('restaurant/booking/', include(router.urls)),

@@ -1,17 +1,78 @@
-
 {% extends 'base.html' %}
 {% load static %}
 
-
 {% block content %}
+{% csrf_token %}
     <h1>Your Cart</h1>
     {% if cart_items %}
         <ul>
             {% for cart_item in cart_items %}
-                <li>{{ cart_item.menu.name }} - Quantity: {{ cart_item.quantity }} - Price: {{ cart_item.price }}</li>
+                <li>
+                    {{ cart_item.menu.name }} - Quantity: {{ cart_item.quantity }} - Price: {{ cart_item.price }}
+                    <button onclick="deleteCartItem('{{ cart_item.id }}')">Delete</button>
+                </li>
             {% endfor %}
         </ul>
+        <p>Total Price: ${{ cart_total }}</p>
+        <button onclick="clearCart()">Clear Cart</button>
     {% else %}
         <p>Your cart is empty.</p>
     {% endif %}
+
+    <script>
+        function deleteCartItem(cartItemId) {
+    const csrfTokenElement = document.querySelector('[name=csrfmiddlewaretoken]');
+    
+    if (csrfTokenElement) {
+        const csrfToken = csrfTokenElement.value;
+
+        fetch(`/api/cart/${cartItemId}/`, {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken,
+            },
+        })
+        .then(response => {
+            if (response.ok) {
+                // Reload the page or update the cart items dynamically
+                location.reload();
+            } else {
+                console.error('Failed to delete cart item');
+            }
+        });
+    } else {
+        console.error('CSRF token element not found');
+    }
+}
+
+
+function clearCart() {
+    const csrfTokenElement = document.querySelector('[name=csrfmiddlewaretoken]');
+
+    if (csrfTokenElement) {
+        const csrfToken = csrfTokenElement.value;
+
+        // Send an AJAX request to clear the entire cart
+        fetch('/api/cart/', {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken,
+            },
+        })
+        .then(response => {
+            if (response.ok) {
+                // Reload the page or update the cart items dynamically
+                location.reload();
+            } else {
+                console.error('Failed to clear the cart');
+            }
+        });
+    } else {
+        console.error('CSRF token element not found');
+    }
+}
+
+    </script>
 {% endblock %}

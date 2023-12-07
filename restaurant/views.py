@@ -27,6 +27,9 @@ from djoser.views import TokenCreateView
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth import authenticate, login
+from django.http import Http404
+from rest_framework.views import APIView
+
 
 
 class CustomTokenCreateView(View):
@@ -303,37 +306,54 @@ class CartAddItemView(generics.CreateAPIView):
 
 
 
-class CartMenuItemsView(generics.ListCreateAPIView):
-    throttle_classes = [AnonRateThrottle, UserRateThrottle]
 
+
+
+
+class CartMenuItemsView(APIView):
+    throttle_classes = [AnonRateThrottle, UserRateThrottle]
     permission_classes = [IsAuthenticated]
     serializer_class = CartSerializer
-    template_name = 'cart.html'
-
 
     def get(self, request, *args, **kwargs):
         cart_items = Cart.objects.filter(user=request.user).order_by('-created_at')
-        context = {'cart_items': cart_items}
-        return render(request, self.template_name, context)
+        cart_total = sum(item.price for item in cart_items)
 
- 
+        context = {'cart_items': cart_items, 'cart_total': cart_total}
+        return render(request, 'cart.html', context)
 
     def perform_create(self, serializer):
         menu_item = serializer.validated_data['menu']
-
-        # Use the helper function to get or create a cart entry
         cart_entry, new_entry_created = get_or_create_cart_entry(self.request.user, menu_item)
-
-        # Adjust the response based on whether a new entry was created
         status_code = status.HTTP_201_CREATED if new_entry_created else status.HTTP_200_OK
-
         serializer = CartSerializer(cart_entry)
         return Response(serializer.data, status=status_code)
-    
-    def destroy(self, request, *args, **kwargs):
+
+    def delete(self, request, *args, **kwargs):
         # Delete all menu items created by the current user
         Cart.objects.filter(user=request.user).delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+    
+    
+class CartItemDetailView(generics.RetrieveDestroyAPIView):
+    queryset = Cart.objects.all()
+    serializer_class = CartSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_object(self):
+        cart_item_id = self.kwargs['pk']
+        user = self.request.user
+
+        try:
+            cart_item = Cart.objects.get(pk=cart_item_id, user=user)
+            return cart_item
+        except Cart.DoesNotExist:
+            raise Http404("Cart item does not exist or does not belong to the user.")
+        
+    
+
+
     
 
 class IsDeliveryCrew(permissions.BasePermission):

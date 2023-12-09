@@ -29,6 +29,8 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth import authenticate, login
 from django.http import Http404
 from rest_framework.views import APIView
+from django.core.serializers.json import DjangoJSONEncoder
+
 
 
 
@@ -141,17 +143,28 @@ def book(request):
     return render(request, 'book.html', context)
 
 
+
 @csrf_exempt
 def bookings(request):
     if request.method == 'POST':
         data = json.load(request)
         exist = Booking.objects.filter(reservation_date=data['reservation_date']).filter(
             reservation_slot=data['reservation_slot']).exists()
-        if exist == False:
+        if not exist:
+            # Get the user making the reservation
+            user = request.user
+
+            # Retrieve the menu based on the provided menu_id (adjust the key based on your actual data structure)
+            menu_id = data.get('menu', None)
+            menu = Menu.objects.get(id=menu_id) if menu_id else None
+
+            # Create the Booking object with user and menu
             booking = Booking(
+                user=user,
                 first_name=data['first_name'],
                 reservation_date=data['reservation_date'],
                 reservation_slot=data['reservation_slot'],
+                menu=menu,
             )
             booking.save()
         else:
@@ -167,11 +180,28 @@ def bookings(request):
         # If the user is not a manager, return only the user's bookings
         bookings = Booking.objects.filter(reservation_date=date, user=request.user)
 
+    # Serialize the Booking objects
     booking_json = serializers.serialize('json', bookings)
 
-    return HttpResponse(booking_json, content_type='application/json')
+    # Modify the serialized data to include the menu name and user name
+    booking_data = json.loads(booking_json)
+    for entry in booking_data:
+        fields = entry['fields']
 
+        # Replace menu ID with menu name
+        menu_id = fields['menu']
+        if menu_id:
+            menu_name = Menu.objects.get(id=menu_id).name
+            fields['menu'] = menu_name
 
+        # Replace user ID with username
+        user_id = fields['user']
+        if user_id:
+            user_name = User.objects.get(id=user_id).username
+            fields['user'] = user_name
+
+    # Convert back to JSON and return the response
+    return HttpResponse(json.dumps(booking_data), content_type='application/json')
 
 def booking(request):
     date = request.GET.get('date', datetime.today().date())
@@ -186,6 +216,7 @@ def booking(request):
             booking_data = json.loads(response.content)
         except json.JSONDecodeError:
             return JsonResponse({'error': 'Unable to parse booking data'})
+        
 
         # Process the JSON data as needed for rendering
         processed_data = [
@@ -201,6 +232,23 @@ def booking(request):
     else:
         # Handle the case where the 'bookings' view returns an error
         return JsonResponse({'error': 'Unable to fetch booking data'})
+
+
+
+
+
+def menu_data(request):
+    categories = Category.objects.values_list('title', flat=True).distinct()
+    menus = Menu.objects.all()
+
+    category_menu_data = {
+        'categories': list(categories),
+        'menus': [{'id': menu.id, 'name': menu.name, 'category': menu.category.title} for menu in menus],
+    }
+
+    # Use DjangoJSONEncoder to handle serialization of additional types
+    return JsonResponse(category_menu_data, encoder=DjangoJSONEncoder)
+
 
 
 
@@ -335,8 +383,8 @@ class CartMenuItemsView(APIView):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
     
-    
-class CartItemDetailView(generics.RetrieveDestroyAPIView):
+
+class CartItemDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Cart.objects.all()
     serializer_class = CartSerializer
     permission_classes = [IsAuthenticated]
@@ -350,8 +398,26 @@ class CartItemDetailView(generics.RetrieveDestroyAPIView):
             return cart_item
         except Cart.DoesNotExist:
             raise Http404("Cart item does not exist or does not belong to the user.")
-        
-    
+
+    def update(self, request, *args, **kwargs):
+        instance = self.get_object()
+        quantity_change = request.data.get('quantity_change', 0)
+
+        if not isinstance(quantity_change, int):
+            return Response({'error': 'Invalid quantity change.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Update the quantity
+        instance.quantity += quantity_change
+
+        # Check if the updated quantity is zero, and delete the item from the cart
+        if instance.quantity <= 0:
+            instance.delete()
+            return Response({'message': 'Item deleted from the cart.'}, status=status.HTTP_204_NO_CONTENT)
+        else:
+            instance.save()
+            serializer = self.get_serializer(instance)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+
 
 
     

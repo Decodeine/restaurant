@@ -2,7 +2,7 @@ from django.urls import path,include, re_path
 from . import views
 from django.conf import settings
 from django.conf.urls.static import static
-from .views import manager_users, remove_manager_user, delivery_crew_users, remove_delivery_crew_user,RegistrationView,CustomTokenCreateView,CartAddItemView,CartItemDetailView,CartMenuItemsView
+from .views import manager_users, remove_manager_user, delivery_crew_users, remove_delivery_crew_user,RegistrationView,CustomTokenCreateView,CartAddItemView,CartItemDetailView,CartMenuItemsView,menu_data
 
 from rest_framework import routers
 
@@ -23,6 +23,8 @@ urlpatterns = [
     
     #path('reservation', views.reservations, name='reservation'),
     path('menu/', views.MenuItemsView.as_view(), name="menu"),
+    path('menu_data/', menu_data, name='menu_data'),
+
     path('menu/<int:pk>', views.SingleMenuItemView.as_view(),name='menu-item'),
     path('categories', views.CategoriesView.as_view()),
     path('ratings', views.RatingsView.as_view()),

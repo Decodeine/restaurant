@@ -4,6 +4,7 @@ from django.utils import timezone
 
 
 
+
 class Rating(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     menuitem_id =  models.SmallIntegerField()
@@ -19,16 +20,7 @@ class Rating(models.Model):
    def __str__(self):
       return self.first_name + ' ' + self.last_name'''
 
-class Booking(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE,null=True)
 
-
-    first_name = models.CharField(max_length=200)
-    reservation_date = models.DateField()
-    reservation_slot = models.SmallIntegerField(default=10)
-
-    def __str__(self): 
-        return self.first_name
     
 class Bookings(models.Model):
     name = models.CharField(max_length=255)
@@ -59,11 +51,22 @@ class Menu(models.Model):
     menu_item_description = models.TextField(max_length=1000, default='')  # Specify a max_length
     inventory = models.SmallIntegerField(db_index=True)
     featured = models.BooleanField(db_index=True)
-
     category = models.ForeignKey(Category, on_delete=models.PROTECT, default=1)
 
     def __str__(self):
         return self.name
+    
+class Booking(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+
+
+    first_name = models.CharField(max_length=200)
+    reservation_date = models.DateField()
+    reservation_slot = models.SmallIntegerField(default=10)
+    menu = models.ForeignKey(Menu, on_delete=models.CASCADE)
+
+    def __str__(self): 
+        return self.first_name
 
 
 

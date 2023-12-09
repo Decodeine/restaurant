@@ -26,6 +26,29 @@
               <option value="0" disabled>Select time</option>
             </select>
           </p>
+          <!-- ... (your existing form code) ... -->
+
+          <p>
+            <label for="category">Select Category:</label>
+            <select id="category" name="category">
+              <option value="" disabled>Select category</option>
+              {% for category in categories %}
+                <option value="{{ category }}">{{ category }}</option>
+              {% endfor %}
+            </select>
+          </p>
+          
+          <p id="menu-container" style="display:none;">
+            <label for="menu">Select Menu:</label>
+            <select id="menu" name="menu" required="">
+              <option value="" disabled>Select menu</option>
+              {% for menu in menus %}
+                <option data-category="{{ menu.category }}" value="{{ menu.id }}">{{ menu.name }}</option>
+              {% endfor %}
+            </select>
+          </p>
+          
+
           <button type="button" id="button">Reserve</button>
         </form>
       </div>
@@ -48,52 +71,100 @@
   </article>
 </section>
 <script>
-
   const date = new Date()
   document.getElementById('reservation_date').value = `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate().toString().padStart(2, "0")}`
 
   console.log(document.getElementById('reservation_date').value)
   getBookings()
 
-
   /*  Step 10: Part two */
+  function getMenuData() {
+    return fetch("{% url 'restaurant:menu_data' %}")
+      .then(response => response.json());
+  }
 
+  document.addEventListener('DOMContentLoaded', function () {
+    getMenuData().then(menuData => {
+      // Handle menu data here
+      console.log(menuData);
+      updateMenuOptions(menuData.categories, menuData.menus);
+    });
+  });
+
+  function updateMenuOptions(categories, menus) {
+    const categoryDropdown = document.getElementById('category');
+    const menuContainer = document.getElementById('menu-container');
+    const menuSelect = document.getElementById('menu');
+
+    // Clear existing options
+    menuSelect.innerHTML = '<option value="" disabled>Select menu</option>';
+
+    // Update category dropdown
+    categoryDropdown.innerHTML = '<option value="" disabled>Select category</option>';
+    categories.forEach(category => {
+      const option = document.createElement('option');
+      option.value = category;
+      option.innerText = category;
+      categoryDropdown.appendChild(option);
+    });
+
+    // Add event listener to category dropdown
+    categoryDropdown.addEventListener('change', function () {
+      const selectedCategory = this.value;
+
+      // Show menu options if a category is selected
+      menuContainer.style.display = selectedCategory ? 'block' : 'none';
+      menuSelect.disabled = !selectedCategory;
+
+      // Filter and display menus based on the selected category
+      menus.forEach(menu => {
+        if (menu.category === selectedCategory) {
+          const option = document.createElement('option');
+          option.value = menu.id;
+          option.dataset.category = menu.category;
+          option.innerText = menu.name;
+
+          menuSelect.appendChild(option);
+        }
+      });
+    });
+  }
 
   function getBookings() {
     let reserved_slots = []
     const date = document.getElementById('reservation_date').value
     document.getElementById('today').innerHTML = date
-    
+
     fetch("{% url 'restaurant:bookings' %}" + '?date=' + date)
       .then(r => r.json())
       .then(data => {
         reserved_slots = []
         bookings = ''
-        
+
         /* Step 11: Part three */
         for (const item of data) {
-        console.log(item.fields);
+          console.log(item.fields);
 
-        reserved_slots.push(item.fields.reservation_slot);
+          reserved_slots.push(item.fields.reservation_slot);
 
-        // Update the bookings string variable
-        bookings += `<p>${item.fields.first_name} - ${formatTime(item.fields.reservation_slot)}</p>`;
-      }
+          // Update the bookings string variable
+          bookings += `<p>${item.fields.first_name} - ${formatTime(item.fields.reservation_slot)}</p>`;
+        }
 
         /* Step 12: Part four  */
         let slot_options = '<option value="0" disabled>Select time</option>';
-    for (let i = 10; i < 20; i++) {
-      const label = formatTime(i);
+        for (let i = 10; i < 20; i++) {
+          const label = formatTime(i);
 
-      if (reserved_slots.includes(i)) {
-        slot_options += `<option value=${i} disabled>${label}</option>`;
-      } else {
-        slot_options += `<option value=${i}>${label}</option>`;
-      }
-    }
-        
+          if (reserved_slots.includes(i)) {
+            slot_options += `<option value=${i} disabled>${label}</option>`;
+          } else {
+            slot_options += `<option value=${i}>${label}</option>`;
+          }
+        }
+
         document.getElementById('reservation_slot').innerHTML = slot_options
-        if(bookings==''){
+        if (bookings == '') {
           bookings = "No bookings"
         }
         document.getElementById('bookings').innerHTML = bookings
@@ -107,20 +178,44 @@
     return label
   }
 
-
   document.getElementById('button').addEventListener('click', function (e) {
-    const formdata = {
-      first_name: document.getElementById('first_name').value,
-      reservation_date: document.getElementById('reservation_date').value,
-      reservation_slot: document.getElementById('reservation_slot').value,
-    }
+  const formdata = {
+    first_name: document.getElementById('first_name').value || '',
+    reservation_date: document.getElementById('reservation_date').value || '',
+    reservation_slot: document.getElementById('reservation_slot').value || '',
+    category: document.querySelector('select[name="category"]').value || '',
+    menu: document.getElementById('menu').value || '',
+  }
 
-    fetch("{% url 'restaurant:bookings' %}", { method: 'post', body: JSON.stringify(formdata) })
-      .then(r => r.text())
-      .then(data => {
-        getBookings()
-      })
-  })
+  fetch("{% url 'restaurant:bookings' %}", { method: 'post', body: JSON.stringify(formdata) })
+    .then(r => r.text())
+    .then(data => {
+      getBookings();
+    })
+})
+
+
+  
+
+    
+
+  const categoryRadios = document.querySelectorAll('input[name="category"]');
+  categoryRadios.forEach(radio => {
+    radio.addEventListener('change', function () {
+      const selectedCategory = this.value;
+      const menuContainer = document.getElementById('menu-container');
+      const menuOptions = document.querySelectorAll(`#menu option[data-category="${selectedCategory}"]`);
+
+      if (menuOptions.length > 0) {
+        menuContainer.style.display = 'block';
+        menuOptions.forEach(option => option.disabled = false);
+      } else {
+        menuContainer.style.display = 'none';
+      }
+    });
+  });
+
 </script>
+
 {% endblock %}
 

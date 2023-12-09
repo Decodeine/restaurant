@@ -8,7 +8,11 @@
         <ul>
             {% for cart_item in cart_items %}
                 <li>
-                    {{ cart_item.menu.name }} - Quantity: {{ cart_item.quantity }} - Price: {{ cart_item.price }}
+                    {{ cart_item.menu.name }} - Quantity: 
+                    <button onclick="updateCartItem('{{ cart_item.id }}', -1)">-</button>
+                    {{ cart_item.quantity }}
+                    <button onclick="updateCartItem('{{ cart_item.id }}', 1)">+</button>
+                    - Price: {{ cart_item.price }}
                     <button onclick="deleteCartItem('{{ cart_item.id }}')">Delete</button>
                 </li>
             {% endfor %}
@@ -20,59 +24,86 @@
     {% endif %}
 
     <script>
+        function updateCartItem(cartItemId, quantityChange) {
+            const csrfTokenElement = document.querySelector('[name=csrfmiddlewaretoken]');
+
+            if (csrfTokenElement) {
+                const csrfToken = csrfTokenElement.value;
+
+                fetch(`/api/cart/${cartItemId}/`, {
+                    method: 'PATCH',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrfToken,
+                    },
+                    body: JSON.stringify({
+                        quantity_change: quantityChange,
+                    }),
+                })
+                .then(response => {
+                    if (response.ok) {
+                        // Reload the page or update the cart items dynamically
+                        location.reload();
+                    } else {
+                        console.error('Failed to update cart item quantity');
+                    }
+                });
+            } else {
+                console.error('CSRF token element not found');
+            }
+        }
+
         function deleteCartItem(cartItemId) {
-    const csrfTokenElement = document.querySelector('[name=csrfmiddlewaretoken]');
-    
-    if (csrfTokenElement) {
-        const csrfToken = csrfTokenElement.value;
+            const csrfTokenElement = document.querySelector('[name=csrfmiddlewaretoken]');
 
-        fetch(`/api/cart/${cartItemId}/`, {
-            method: 'DELETE',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': csrfToken,
-            },
-        })
-        .then(response => {
-            if (response.ok) {
-                // Reload the page or update the cart items dynamically
-                location.reload();
+            if (csrfTokenElement) {
+                const csrfToken = csrfTokenElement.value;
+
+                fetch(`/api/cart/${cartItemId}/`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrfToken,
+                    },
+                })
+                .then(response => {
+                    if (response.ok) {
+                        // Reload the page or update the cart items dynamically
+                        location.reload();
+                    } else {
+                        console.error('Failed to delete cart item');
+                    }
+                });
             } else {
-                console.error('Failed to delete cart item');
+                console.error('CSRF token element not found');
             }
-        });
-    } else {
-        console.error('CSRF token element not found');
-    }
-}
+        }
 
+        function clearCart() {
+            const csrfTokenElement = document.querySelector('[name=csrfmiddlewaretoken]');
 
-function clearCart() {
-    const csrfTokenElement = document.querySelector('[name=csrfmiddlewaretoken]');
+            if (csrfTokenElement) {
+                const csrfToken = csrfTokenElement.value;
 
-    if (csrfTokenElement) {
-        const csrfToken = csrfTokenElement.value;
-
-        // Send an AJAX request to clear the entire cart
-        fetch('/api/cart/', {
-            method: 'DELETE',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': csrfToken,
-            },
-        })
-        .then(response => {
-            if (response.ok) {
-                // Reload the page or update the cart items dynamically
-                location.reload();
+                // Send an AJAX request to clear the entire cart
+                fetch('/api/cart/', {
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrfToken,
+                    },
+                })
+                .then(response => {
+                    if (response.ok) {
+                        // Reload the page or update the cart items dynamically
+                        location.reload();
+                    } else {
+                        console.error('Failed to clear the cart');
+                    }
+                });
             } else {
-                console.error('Failed to clear the cart');
+                console.error('CSRF token element not found');
             }
-        });
-    } else {
-        console.error('CSRF token element not found');
-    }
-}
-
+        }
     </script>
 {% endblock %}

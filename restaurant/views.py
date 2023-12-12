@@ -30,6 +30,8 @@ from django.contrib.auth import authenticate, login
 from django.http import Http404
 from rest_framework.views import APIView
 from django.core.serializers.json import DjangoJSONEncoder
+from datetime import datetime, timedelta
+from django.contrib.auth.decorators import login_required 
 
 
 
@@ -158,6 +160,11 @@ def bookings(request):
             menu_id = data.get('menu', None)
             menu = Menu.objects.get(id=menu_id) if menu_id else None
 
+
+            #selected_time = ...  # get this value based on frontend logic
+            
+
+
             # Create the Booking object with user and menu
             booking = Booking(
                 user=user,
@@ -165,6 +172,8 @@ def bookings(request):
                 reservation_date=data['reservation_date'],
                 reservation_slot=data['reservation_slot'],
                 menu=menu,
+                #reservation_time=selected_time,  # User-selected time for the reservation
+                 #expiration_time=selected_time + timedelta(hours=1)  
             )
             booking.save()
         else:
@@ -565,6 +574,42 @@ class OrderDetailView(generics.RetrieveUpdateDestroyAPIView):
             # Other users can only see their own orders
             return Order.objects.filter(user=user)
         
+
+
+
+def checkout(request):
+    # Retrieve cart items for the current user
+    cart_items = Cart.objects.filter(user=request.user)
+
+    # Calculate total price
+    total_price = sum(item.menu.price * item.quantity for item in cart_items)
+
+    if request.method == 'POST':
+        if not request.user.is_authenticated:
+            return redirect('login')
+
+        # Create an order locally in the Django database
+        order = Order.objects.create(user=request.user, total=total_price, status='True')
+
+        # Move cart items to the order
+        for cart_item in cart_items:
+            OrderItem.objects.create(
+                order=order,
+                menu=cart_item.menu,
+                quantity=cart_item.quantity,
+                unit_price=cart_item.menu.price,
+                price=cart_item.menu.price * cart_item.quantity
+            )
+
+        # Clear the user's cart
+        cart_items.delete()
+
+        
+        
+        return HttpResponse('Order successful!')
+
+    return render(request, 'checkout.html', {'cart_items': cart_items, 'total_price': total_price})
+
 #class UserViewSet(viewsets.ModelViewSet):
    #queryset = User.objects.all() 
    #serializer_class = UserSerializer

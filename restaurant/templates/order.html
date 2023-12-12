@@ -1,0 +1,39 @@
+<!-- orders_list.html -->
+{% extends 'base.html' %}
+{% load static %}
+{% block content %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Order List</title>
+</head>
+<body>
+    <h1>Order List</h1>
+    <ul>
+        {% for order in orders %}
+            <li>
+                <strong>Order ID:</strong> {{ order.id }}<br>
+                <strong>Total:</strong> {{ order.total }}<br>
+                <strong>Time:</strong> {{ order.time }}<br>
+                <strong>Status:</strong> {{ order.delivery_status }}<br>
+                {% if order.delivery_crew %}
+                    <strong>Delivery Crew:</strong> {{ order.delivery_crew.name }}<br>
+                {% endif %}
+                <!-- Add other order details as needed -->
+
+                <!-- Add link to assign delivery crew (visible only to managers) -->
+                {% if request.user.groups.filter(name='manager').exists %}
+                    {% if order.delivery_status == 'Pending' %}
+                        <a href="{% url 'assign_delivery_crew' pk=order.id %}">Assign Delivery Crew</a><br>
+                    {% endif %}
+                {% endif %}
+
+                <hr>
+            </li>
+        {% endfor %}
+    </ul>
+</body>
+</html>
+{% endblock %}
+

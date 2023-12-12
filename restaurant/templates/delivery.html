@@ -1,0 +1,39 @@
+<!-- assign_delivery_crew.html -->
+
+{% extends 'base.html' %}
+{% block content %}
+  <h1>Assign Delivery Crew</h1>
+  <form id="assignDeliveryCrewForm">
+    <label for="deliveryCrewId">Delivery Crew ID:</label>
+    <input type="text" id="deliveryCrewId" name="deliveryCrewId" required>
+    <button type="button" onclick="assignDeliveryCrew()">Assign Delivery Crew</button>
+  </form>
+  <div id="resultMessage"></div>
+
+  <script>
+    function assignDeliveryCrew() {
+      const order_id = "{{ order_id }}";  // Replace with the actual order ID
+      const delivery_crew_id = document.getElementById('deliveryCrewId').value;
+
+      // Make an asynchronous request to assign the delivery crew
+      fetch(`/api/orders/${order_id}/assign_delivery_crew/`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': '{{ csrf_token }}',
+        },
+        body: JSON.stringify({ delivery_crew_id }),
+      })
+      .then(response => response.json())
+      .then(data => {
+        // Display the result message
+        document.getElementById('resultMessage').innerText = data.message;
+      })
+      .catch(error => {
+        console.error('Error:', error);
+        // Display an error message if needed
+        document.getElementById('resultMessage').innerText = 'Error assigning delivery crew.';
+      });
+    }
+  </script>
+{% endblock %}

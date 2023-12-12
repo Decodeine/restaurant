@@ -93,12 +93,29 @@ class Cart(models.Model):
         super().save(*args, **kwargs)
 
 
+class DeliveryCrew(models.Model):
+    name = models.CharField(max_length=255)
+    is_available = models.BooleanField(default=True)
+
+    def __str__(self):
+        return self.name
+
 class Order(models.Model):
     user=models.ForeignKey(User, on_delete=models.CASCADE)
     delivery_crew=models.ForeignKey(User, on_delete=models.SET_NULL, related_name='delivery_crew', null=True)
-    status=models.BooleanField(  )#db_index=True
+    #status=models.BooleanField(  )#db_index=True
+    DELIVERY_STATUS_CHOICES = [
+        ('True', 'Delivery'),
+        ('False', 'Self Pick Up'),
+        ('Pending', 'Pending Assignment'),
+    ]
+    delivery_status = models.CharField(
+        max_length=10, choices=DELIVERY_STATUS_CHOICES, default='Pending'
+    )
     total=models.DecimalField(max_digits=6,decimal_places=2)
     date=models.DateField(auto_now_add=True)
+    delivery_crew = models.ForeignKey('DeliveryCrew', null=True, blank=True, on_delete=models.SET_NULL)
+
 
 class OrderItem(models.Model):
     order=models.ForeignKey(Order,on_delete=models.CASCADE)
@@ -109,3 +126,6 @@ class OrderItem(models.Model):
 
     class Meta:
         unique_together=('order', 'menu')
+
+
+

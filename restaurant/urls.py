@@ -2,7 +2,7 @@ from django.urls import path,include, re_path
 from . import views
 from django.conf import settings
 from django.conf.urls.static import static
-from .views import manager_users, remove_manager_user, delivery_crew_users, remove_delivery_crew_user,RegistrationView,CustomTokenCreateView,CartAddItemView,CartItemDetailView,CartMenuItemsView,menu_data,checkout
+from .views import manager_users, remove_manager_user, delivery_crew_users, remove_delivery_crew_user,RegistrationView,CustomTokenCreateView,CartAddItemView,CartItemDetailView,CartMenuItemsView,menu_data,checkout,AssignDeliveryCrewView
 
 from rest_framework import routers
 
@@ -34,7 +34,9 @@ urlpatterns = [
     path('api/groups/delivery-crew/users/<int:user_id>/', remove_delivery_crew_user, name='remove_delivery_crew_user'),
     path('api/cart/',CartMenuItemsView.as_view(), name='cart_menu'),
     path('api/cart/<int:pk>/', CartItemDetailView.as_view(), name='cart-item-detail'),
-    path('api/orders',views.OrderListView.as_view(),name='order'), 
+    path('api/orders',views.OrderListView.as_view(),name='order'),
+    path('assign_delivery_crew/<int:order_id>/', AssignDeliveryCrewView.as_view(), name='assign_delivery_crew_view'),
+ 
     path('api/orders/<int:pk>/',views.OrderDetailView.as_view()),
     path('restaurant/booking/', include(router.urls)),
     path('login', CustomTokenCreateView.as_view(), name='login'),

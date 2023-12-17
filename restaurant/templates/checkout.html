@@ -1,68 +1,82 @@
 {% extends 'base.html' %}
+
 {% block content %}
-<h1>Checkout</h1>
+    <h1>Checkout</h1>
 
-<h2>Your Order Summary</h2>
-<ul>
-    {% for cart_item in cart_items %}
+    <h2>Your Order Summary</h2>
+    <ul>
+      {% for cart_item in cart_items %}
         <li>{{ cart_item.menu.name }} - Quantity: {{ cart_item.quantity }} - Price: ${{ cart_item.menu.price }}</li>
-    {% endfor %}
-</ul>
-<p>Total Price: ${{ total_price }}</p>
+      {% endfor %}
+    </ul>
+    <p>Total Price: ${{ total_price }}</p>
 
-<h2>Delivery Details</h2>
-<form method="post" action="{% url 'restaurant:checkout' %}">
-    {% csrf_token %}
-    <!-- Add form fields for delivery details -->
-    <label for="address">Delivery Address:</label>
-    <input type="text" name="address" required>
+    <h2>Delivery Details</h2>
+    <form method="post" action="{% url 'restaurant:checkout' %}">
+      {% csrf_token %}
+      <label for="delivery_option">Delivery Option:</label>
+      <select name="delivery_option" id="delivery_option" required>
+        <option value="SelfPickUp">Self Pick Up</option>
+        <option value="Delivery">Delivery</option>
+      </select>
 
-    <!-- Add additional form fields as needed -->
-    <!-- Example: -->
-    <label for="name">Your Name:</label>
-    <input type="text" name="name" required>
+      {% if user.is_authenticated %}
+        <label for="address">Delivery Address:</label>
+        <input type="text" name="address" id="address" required>
 
-    <label for="contact_number">Contact Number:</label>
-    <input type="text" name="contact_number" required>
+        <label for="name">Your Name:</label>
+        <input type="text" name="name" id="name" required>
 
-    <!-- Add any other necessary fields -->
+        <label for="contact_number">Contact Number:</label>
+        <input type="text" name="contact_number" id="contact_number" required>
 
-    <button type="submit">Place Order</button>
-</form>
-<script>
-const apiEndpoint = '/api/orders';
-const authToken = '{{ request.auth_token }}';
+      {% endif %}
 
-const data = {
-  user: userId,
-  total_price: totalPrice,
-  status: 'True',
-  // Other required fields
-};
+      <button type="submit">Place Order</button>
+    </form>
 
-const headers = {
-  'Content-Type': 'application/json',
-  'X-CSRFToken': '{{ csrf_token }}',
-};
+    <script>
+      const apiEndpoint = '/api/orders';
+      const authToken = '{{ request.auth_token }}';
 
-// Set the Authorization header only if an authentication token is available
-if (authToken) {
-  headers['Authorization'] = `Token ${authToken}`;
-}
+      const updateData = () => {
+        const deliveryOption = document.getElementById('delivery_option').value;
+        return {
+          user: userId,
+          total_price: totalPrice,
+          status: deliveryOption === 'Delivery' ? 'Pending' : null,
+          // Other required fields based on your API
+          delivery_option: deliveryOption, // Add delivery option to data
+        };
+      };
 
-fetch(apiEndpoint, {
-  method: 'POST',
-  headers: headers,
-  body: JSON.stringify(data),
-})
-  .then(response => response.json())
-  .then(data => {
-    // Handle the response from the server
-    console.log(data);
-  })
-  .catch(error => {
-    // Handle errors
-    console.error('Error:', error);
-  });
-</script>
+      const headers = {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': '{{ csrf_token }}',
+      };
+
+      // Set Authorization header only if an authentication token is available
+      if (authToken) {
+        headers['Authorization'] = `Token ${authToken}`;
+      }
+
+      document.getElementById('delivery_option').addEventListener('change', () => {
+        const data = updateData();
+        fetch(apiEndpoint, {
+          method: 'POST',
+          headers: headers,
+          body: JSON.stringify(data),
+        })
+          .then(response => response.json())
+          .then(data => {
+            // Handle the response from the server
+            console.log(data);
+          })
+          .catch(error => {
+            // Handle errors
+            console.error('Error:', error);
+          });
+      });
+    </script>
+
 {% endblock %}

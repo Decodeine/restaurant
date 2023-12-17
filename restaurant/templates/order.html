@@ -1,39 +1,76 @@
-<!-- orders_list.html -->
 {% extends 'base.html' %}
 {% load static %}
+
 {% block content %}
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Order List</title>
-</head>
-<body>
-    <h1>Order List</h1>
-    <ul>
-        {% for order in orders %}
-            <li>
-                <strong>Order ID:</strong> {{ order.id }}<br>
-                <strong>Total:</strong> {{ order.total }}<br>
-                <strong>Time:</strong> {{ order.time }}<br>
-                <strong>Status:</strong> {{ order.delivery_status }}<br>
-                {% if order.delivery_crew %}
-                    <strong>Delivery Crew:</strong> {{ order.delivery_crew.name }}<br>
-                {% endif %}
-                <!-- Add other order details as needed -->
+  <h1>Order List</h1>
 
-                <!-- Add link to assign delivery crew (visible only to managers) -->
-                {% if request.user.groups.filter(name='manager').exists %}
-                    {% if order.delivery_status == 'Pending' %}
-                        <a href="{% url 'assign_delivery_crew' pk=order.id %}">Assign Delivery Crew</a><br>
-                    {% endif %}
-                {% endif %}
+  <ul>
+    {% for order in orders %}
+      <li class="order-item {% if user_is_manager %}manager-order{% endif %}">
+        <strong>Order ID:</strong> {{ order.id }}<br>
+        <strong>Total:</strong> {{ order.total }}<br>
+        <strong>Time:</strong> {{ order.time }}<br>
+        <strong>Status:</strong> {{ order.order_status }}<br>
 
-                <hr>
-            </li>
-        {% endfor %}
-    </ul>
-</body>
-</html>
+        {% if order.delivery_crew %}
+          <strong>Delivery Crew:</strong> {{ order.delivery_crew.name }}<br>
+        {% endif %}
+
+        {% if order.order_status == 'Assigned' %}
+          <form class="mark-delivered-form" data-order-id="{{ order.id }}" method="put" action="{% url 'restaurant:mark_delivered' order.id %}">
+            {% csrf_token %}
+            <button type="submit">Mark Delivered</button>
+          </form>
+        {% endif %}
+        
+        <form class="assign-crew-form" data-order-id="{{ order.id }}" method="post" action="{% url 'restaurant:assign_delivery_crew' order.id %}">
+          {% csrf_token %}
+          
+          <label for="deliveryCrewId">Select Delivery Crew:</label>
+          <select id="deliveryCrewId" name="delivery_crew_id" required>
+            {% for crew in delivery_crew_list %}
+              <option value="{{ crew.id }}">{{ crew.name }} - Available: {{ crew.is_available }}</option>
+            {% endfor %}
+          </select>
+
+          <button type="submit">Assign Delivery Crew</button>
+        </form>
+      </li>
+    {% endfor %}
+  </ul>
+
+  <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
+  <script>
+    $(document).ready(function() {
+      // Assign delivery crew form submission
+      $('.assign-crew-form').submit(function(event) {
+        event.preventDefault();
+
+        // Retrieve selected delivery crew ID
+        var deliveryCrewId = $(this).find('select[name="delivery_crew_id"]').val();
+
+        // Retrieve order ID
+        var orderId = $(this).data('order-id');
+
+        // Perform AJAX request to assign delivery crew
+        $.ajax({
+          type: 'POST',
+          url: '/assign-delivery-crew/' + orderId + '/',
+          data: {
+            'delivery_crew_id': deliveryCrewId,
+            'csrfmiddlewaretoken': $('input[name="csrfmiddlewaretoken"]').val()
+          },
+          success: function(response) {
+            console.log(response);
+            // Handle success, e.g., update UI
+          },
+          error: function(error) {
+            console.log(error);
+            // Handle error, e.g., display an error message
+          }
+        });
+      });
+    });
+  </script>
+
 {% endblock %}
-

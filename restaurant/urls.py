@@ -2,7 +2,7 @@ from django.urls import path,include, re_path
 from . import views
 from django.conf import settings
 from django.conf.urls.static import static
-from .views import manager_users, remove_manager_user, delivery_crew_users, remove_delivery_crew_user,RegistrationView,CustomTokenCreateView,CartAddItemView,CartItemDetailView,CartMenuItemsView,menu_data,checkout,AssignDeliveryCrewView
+from .views import manager_users, remove_manager_user, delivery_crew_users, remove_delivery_crew_user,RegistrationView,CustomTokenCreateView,CartAddItemView,CartItemDetailView,CartMenuItemsView,menu_data,checkout,assign_delivery_crew,delivery_crew_list,mark_delivered
 
 from rest_framework import routers
 
@@ -35,8 +35,12 @@ urlpatterns = [
     path('api/cart/',CartMenuItemsView.as_view(), name='cart_menu'),
     path('api/cart/<int:pk>/', CartItemDetailView.as_view(), name='cart-item-detail'),
     path('api/orders',views.OrderListView.as_view(),name='order'),
-    path('assign_delivery_crew/<int:order_id>/', AssignDeliveryCrewView.as_view(), name='assign_delivery_crew_view'),
- 
+    #path('api/orders/<int:pk>/assign-delivery-crew/', OrderListView.as_view(), name='assign_delivery_crew'),
+
+    path('delivery-crew-list/', delivery_crew_list, name='delivery_crew_list'),
+    path('mark-delivered/<int:order_id>/', mark_delivered, name='mark_delivered'),
+
+    path('assign-delivery-crew/<int:order_id>/', assign_delivery_crew, name='assign_delivery_crew'),
     path('api/orders/<int:pk>/',views.OrderDetailView.as_view()),
     path('restaurant/booking/', include(router.urls)),
     path('login', CustomTokenCreateView.as_view(), name='login'),

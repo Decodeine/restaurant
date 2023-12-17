@@ -3,6 +3,12 @@
 from rest_framework.response import Response
 from rest_framework import status
 from .models import Cart,Order
+from rest_framework.pagination import PageNumberPagination
+
+class YourPaginationClass(PageNumberPagination):
+    page_size = 5  # Number of items per page
+    page_size_query_param = 'page'
+    max_page_size = 50
 
 def get_or_create_cart_entry(user, menu_item):
     existing_cart_entry = Cart.objects.filter(user=user, menu=menu_item).first()

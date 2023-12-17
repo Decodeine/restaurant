@@ -1,17 +1,15 @@
 from django.http import HttpResponse,JsonResponse
 from django.shortcuts import render,redirect
 from .forms import BookingForm
-from .models import Menu, Category,Cart,Order,OrderItem,DeliveryCrew
+from .models import Menu, Category,Cart,Order,OrderItem,Deliverystatus,Rating,Booking
 from rest_framework import generics
 from .serializers import MenuItemSerializer, CategorySerializer,RatingSerializer,CartSerializer,OrderSerializer,OrderItemSerializer,BookingSerializer
-from rest_framework.pagination import PageNumberPagination
-from .models import Rating,Booking
 from rest_framework import permissions
 from django.contrib.auth.models import User,Group
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.authentication import TokenAuthentication, SessionAuthentication
-
+from django.utils import timezone
 from rest_framework.response import Response
 from rest_framework import status, viewsets,generics
 from django.shortcuts import get_object_or_404
@@ -35,8 +33,8 @@ from django.contrib.auth.decorators import login_required
 from rest_framework.permissions import BasePermission
 from rest_framework.decorators import action
 from django.utils.decorators import method_decorator
-from restaurant.utils import get_user_orders,get_or_create_cart_entry
-from .perm import IsManager,IsManagerOrReadOnly
+from restaurant.utils import get_user_orders,get_or_create_cart_entry,YourPaginationClass
+from .perm import IsManager,IsManagerOrReadOnly,IsDeliveryCrew,IsOrderOwner
 
 
 
@@ -260,12 +258,6 @@ def menu_data(request):
 
 
 
-class YourPaginationClass(PageNumberPagination):
-    page_size = 5  # Number of items per page
-    page_size_query_param = 'page'
-    max_page_size = 50
-
-
 class MenuItemsView(generics.ListCreateAPIView):
     queryset = Menu.objects.all()
     serializer_class = MenuItemSerializer
@@ -414,34 +406,21 @@ class CartItemDetailView(generics.RetrieveUpdateDestroyAPIView):
 
 
 
-    
-
-class IsDeliveryCrew(permissions.BasePermission):
-    def has_permission(self, request, view):
-        return request.user and request.user.groups.filter(name='delivery_crew').exists()
-    
-class IsOrderOwner(permissions.BasePermission):
-    def has_object_permission(self, request, view, obj):
-        # Check if the user is the owner of the order
-        return obj.user == request.user
- 
-
-
-
-
-
 
 
 class OrderListView(generics.ListCreateAPIView):
     throttle_classes = [AnonRateThrottle, UserRateThrottle]
-
     serializer_class = OrderSerializer
     permission_classes = [IsAuthenticated]
 
-    
-
     def get_user_orders(self):
-        return get_user_orders(self.request).order_by('-time')
+        user = self.request.user
+        if user.groups.filter(name='manager').exists():
+            # If the user is a manager, return all orders
+            return Order.objects.all().order_by('-time')
+        else:
+            # If the user is not a manager, return orders for that user
+            return get_user_orders(self.request).order_by('-time')
 
     def get_queryset(self):
         return self.get_user_orders()
@@ -452,19 +431,24 @@ class OrderListView(generics.ListCreateAPIView):
 
         # Check if the cart is not empty
         if not cart_items.exists():
-            return Response({'error': 'Cart is empty'}, status=status.HTTP_400_BAD_REQUEST)
+            raise PermissionDenied({'error': 'Cart is empty'})
 
         # Calculate total price based on cart items
         total_price = sum(cart_item.price for cart_item in cart_items)
 
+        delivery_option = self.request.data.get('delivery_option', 'SelfPickUp')
+
+        # Set delivery_status based on delivery_option
+        delivery_status = 'Pending' if delivery_option == 'Delivery' else None
+
         # Create a new order
         order = Order.objects.create(
-        user=self.request.user,
-        total=total_price,
-        time=datetime.now(),
-        delivery_status='Pending'  # Set your default status here
-)
-
+            user=self.request.user,
+            total=total_price,
+            time=datetime.now(),
+            delivery_status=delivery_status,
+            delivery_option=delivery_option,
+        )
 
         # Create order items based on cart items
         for cart_item in cart_items:
@@ -478,8 +462,6 @@ class OrderListView(generics.ListCreateAPIView):
 
         # Delete all items from the cart for this user
         cart_items.delete()
-        
-
 
         # Set the created order as the serializer instance
         serializer.instance = order
@@ -490,53 +472,17 @@ class OrderListView(generics.ListCreateAPIView):
         self.perform_create(serializer)
         headers = self.get_success_headers(serializer.data)
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
-    
 
     def get(self, request, *args, **kwargs):
         orders = self.get_queryset()
-        return render(request, 'orders_list.html', {'orders': orders})
-
-
-    
-
-
-    @action(detail=True, methods=['patch'],permission_classes=[IsAuthenticated, IsManager])
-
-    def assign_delivery_crew(self, request, pk=None):
-        
-        # Manager's logic to assign a delivery crew to a pending order
-        try:
-            order = self.get_object()
-            delivery_crew_id = request.data.get('delivery_crew_id')
-
-            if not delivery_crew_id:
-                return Response({'error': 'Please provide a valid delivery crew ID'}, status=status.HTTP_400_BAD_REQUEST)
-
-            delivery_crew = DeliveryCrew.objects.get(pk=delivery_crew_id)
-
-            # Assign the delivery crew to the order
-            order.delivery_crew = delivery_crew
-            order.delivery_status = 'True'
-            order.save()
-
-            # Update delivery crew availability
-            delivery_crew.is_available = False
-            delivery_crew.save()
-
-            return Response({'message': 'Delivery crew assigned successfully'}, status=status.HTTP_200_OK)
-        except Order.DoesNotExist:
-            return Response({'error': 'Invalid order ID or order is not pending assignment'}, status=status.HTTP_404_NOT_FOUND)
-        except DeliveryCrew.DoesNotExist:
-            return Response({'error': 'Invalid delivery crew ID'}, status=status.HTTP_400_BAD_REQUEST)
-
-
+        return render(request, 'order.html', {'orders': orders})
 
 
 class OrderDetailView(generics.RetrieveUpdateDestroyAPIView):
     throttle_classes = [AnonRateThrottle, UserRateThrottle]
     queryset = Order.objects.all()
     serializer_class = OrderSerializer
-    permission_classes = [IsOrderOwner | IsManagerOrReadOnly | IsDeliveryCrew | IsAuthenticated]
+    permission_classes = [IsOrderOwner | IsManagerOrReadOnly | IsDeliveryCrew | IsManager | IsAuthenticated]
 
     def update(self, request, *args, **kwargs):
         partial = kwargs.pop('partial', False)
@@ -549,11 +495,11 @@ class OrderDetailView(generics.RetrieveUpdateDestroyAPIView):
             # Only managers can assign a delivery crew
             self.check_manager_permissions(serializer.validated_data)
         elif request.user.groups.filter(name='delivery_crew').exists():
-            # Delivery crew can update the status field
+            # Delivery crew can update the delivery_status field
             self.check_delivery_crew_permissions(serializer.validated_data)
         else:
             # Users/customers can only update the order without assigning a delivery crew
-            serializer.validated_data.pop('delivery_crew', None)
+            serializer.validated_data.pop('delivery_status', None)
 
         # Allow updating other fields (like status) for all user groups
         self.perform_update(serializer)
@@ -582,7 +528,7 @@ class OrderDetailView(generics.RetrieveUpdateDestroyAPIView):
         return super().get_permissions()
 
     def check_manager_permissions(self, validated_data=None):
-        if validated_data and 'delivery_crew' in validated_data and validated_data['delivery_crew'] is not None:
+        if validated_data and 'delivery_status' in validated_data and validated_data['delivery_status'] is not None:
             raise PermissionDenied("Managers can only update the status or assign a delivery crew.")
 
     def check_delivery_crew_permissions(self, validated_data=None):
@@ -591,14 +537,81 @@ class OrderDetailView(generics.RetrieveUpdateDestroyAPIView):
             # You may want to add more conditions or validation here
             pass
         else:
-            # Delivery crew cannot update the delivery_crew field
-            validated_data.pop('delivery_crew', None)
-
-        
+            # Delivery crew cannot update the delivery_status field
+            validated_data.pop('delivery_status', None)
 
 
-@method_decorator(login_required, name='dispatch')
-class AssignDeliveryCrewView(View):
+@api_view(['GET'])
+@permission_classes([IsManager])
+def delivery_crew_list(request):
+    # Retrieve all users who belong to the 'delivery_crew' group
+    delivery_crew_users = User.objects.filter(groups__name='delivery_crew')
+
+    # Extract data from User and Deliverystatus models
+    crew_data = [
+        {
+            'id': user.delivery_crew.id if hasattr(user, 'delivery_crew') else None,
+            'name': user.delivery_crew.name if hasattr(user, 'delivery_crew') else None,
+            'is_available': user.delivery_crew.is_available if hasattr(user, 'delivery_crew') else None
+        }
+        for user in delivery_crew_users
+    ]
+
+    return Response(crew_data)
+
+
+@api_view(['PUT'])
+@permission_classes([IsManager])
+def assign_delivery_crew(request, order_id):
+    # Extract delivery crew ID from the request data
+    delivery_crew_id = request.data.get('delivery_crew_id')
+
+    # Retrieve the order and delivery crew objects
+    order = get_object_or_404(Order, pk=order_id)
+    delivery_crew = get_object_or_404(Deliverystatus, pk=delivery_crew_id)
+
+    # Ensure the order is pending before assigning a delivery crew
+    if order.order_status == 'Pending Assignment':
+        # Check if the delivery crew is available
+        if delivery_crew.is_available:
+            # Update the associated user's delivery_crew field
+            user = User.objects.filter(deliverystatus=delivery_crew).first()
+            if user:
+                user.deliverystatus = None
+                user.save()
+
+            # Assign the delivery crew to the order
+            order.deliverystatus = delivery_crew
+            order.order_status = 'Assigned'  # Update the order status
+            order.save()
+
+            return Response({'success': 'Delivery crew assigned successfully'}, status=status.HTTP_200_OK)
+        else:
+            return Response({'error': 'Selected delivery crew is not available'}, status=status.HTTP_400_BAD_REQUEST)
+    else:
+        return Response({'error': 'Order must be pending to assign a delivery crew'}, status=status.HTTP_400_BAD_REQUEST)
+
+@api_view(['PUT'])
+@permission_classes([IsManager])
+def mark_delivered(request, order_id):
+    order = get_object_or_404(Order, pk=order_id)
+
+    # Ensure the order is assigned before marking as delivered
+    if order.order_status == 'Assigned':
+        # Update the associated user's delivery_crew field
+        user = User.objects.filter(delivery_crew=order.delivery_crew).first()
+        if user:
+            user.delivery_crew = None
+            user.save()
+
+        order.order_status = 'Delivered'
+        order.save()
+        return Response({'success': 'Order marked as delivered successfully'}, status=status.HTTP_200_OK)
+    else:
+        return Response({'error': 'Order must be assigned to mark as delivered'}, status=status.HTTP_400_BAD_REQUEST)
+
+#@method_decorator(login_required, name='dispatch')
+#class AssignDeliveryCrewView(View):
     template_name = 'assign_delivery_crew.html'
 
     def get(self, request, order_id):
@@ -622,9 +635,11 @@ def checkout(request):
     if request.method == 'POST':
         if not request.user.is_authenticated:
             return redirect('login')
+        
+        order_time = timezone.now()
 
         # Create an order locally in the Django database
-        order = Order.objects.create(user=request.user, total=total_price) #status='True')
+        order = Order.objects.create(user=request.user, total=total_price,time=order_time) #status='True')
 
         # Move cart items to the order
         for cart_item in cart_items:
@@ -685,33 +700,33 @@ def remove_manager_user(request, user_id):
 @api_view(['GET', 'POST'])
 @permission_classes([IsManagerOrReadOnly])
 def delivery_crew_users(request):
-    # Similar implementation for 'delivery_crew' group
     if request.method == 'GET':
         # Retrieve all users in the 'delivery_crew' group
-        delivery_crew = User.objects.filter(groups__name='Delivery_crew')
-        delivery_crew_data = [{'id': user.id, 'username': user.username} for user in delivery_crew]
+        delivery_crew = DeliveryCrew.objects.all()
+        delivery_crew_data = [{'id': crew.id, 'name': crew.name, 'is_available': crew.is_available} for crew in delivery_crew]
         return Response(delivery_crew_data)
 
     elif request.method == 'POST':
         # Assign the user in the payload to the 'delivery_crew' group
         try:
-            user_id = request.data['user_id']
-            user = User.objects.get(pk=user_id)
-        except (KeyError, User.DoesNotExist):
-            return Response({'error': 'Invalid user_id'}, status=status.HTTP_400_BAD_REQUEST)
+            crew_name = request.data['name']
+            is_available = request.data.get('is_available', True)
 
-        delivery_crew_group, created = Group.objects.get_or_create(name='Delivery_crew')
-        user.groups.add(delivery_crew_group)
-        return Response(status=status.HTTP_201_CREATED)
+            # Create a new delivery crew with the provided information
+            new_crew = DeliveryCrew.objects.create(name=crew_name, is_available=is_available)
+
+            return Response({'success': 'Delivery crew added successfully'}, status=status.HTTP_201_CREATED)
+        except KeyError:
+            return Response({'error': 'Invalid payload'}, status=status.HTTP_400_BAD_REQUEST)
 
 @api_view(['DELETE'])
 @permission_classes([IsManagerOrReadOnly])
-def remove_delivery_crew_user(request, user_id):
-    # Remove the user with the given user_id from the 'delivery_crew' group
-    user = get_object_or_404(User, pk=user_id)
-    delivery_crew_group = get_object_or_404(Group, name='Delivery_crew')
-    user.groups.remove(delivery_crew_group)
-    return Response(status=status.HTTP_200_OK)
+def remove_delivery_crew_user(request, crew_id):
+    # Remove the crew with the given crew_id
+    crew = get_object_or_404(DeliveryCrew, pk=crew_id)
+    crew.delete()
+    return Response({'success': 'Delivery crew removed successfully'}, status=status.HTTP_200_OK)
+
 
 
 

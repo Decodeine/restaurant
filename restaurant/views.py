@@ -660,11 +660,6 @@ def checkout(request):
 
     return render(request, 'checkout.html', {'cart_items': cart_items, 'total_price': total_price})
 
-#class UserViewSet(viewsets.ModelViewSet):
-   #queryset = User.objects.all() 
-   #serializer_class = UserSerializer
-   #permission_classes = [permissions.IsAuthenticated] 
-
 
 @api_view(['GET', 'POST'])
 @permission_classes([IsManagerOrReadOnly])
@@ -687,47 +682,40 @@ def manager_users(request):
         user.groups.add(manager_group)
         return Response(status=status.HTTP_201_CREATED)
 
+
 @api_view(['DELETE'])
 @permission_classes([IsManagerOrReadOnly])
 def remove_manager_user(request, user_id):
     user = get_object_or_404(User, pk=user_id)
-    manager_group = get_object_or_404(Group, name='manager')
+    manager_group = Group.objects.get(name='manager')
     user.groups.remove(manager_group)
-    return Response(status=status.HTTP_200_OK)
-
-
+    return Response({'success': 'User removed from manager group successfully'}, status=status.HTTP_200_OK)
 
 @api_view(['GET', 'POST'])
 @permission_classes([IsManagerOrReadOnly])
 def delivery_crew_users(request):
     if request.method == 'GET':
         # Retrieve all users in the 'delivery_crew' group
-        delivery_crew = DeliveryCrew.objects.all()
-        delivery_crew_data = [{'id': crew.id, 'name': crew.name, 'is_available': crew.is_available} for crew in delivery_crew]
+        delivery_crew = User.objects.filter(groups__name='delivery_crew')
+        delivery_crew_data = [{'id': user.id, 'username': user.username} for user in delivery_crew]
         return Response(delivery_crew_data)
 
     elif request.method == 'POST':
         # Assign the user in the payload to the 'delivery_crew' group
         try:
-            crew_name = request.data['name']
-            is_available = request.data.get('is_available', True)
+            user_id = request.data['user_id']
+            user = User.objects.get(pk=user_id)
+        except (KeyError, User.DoesNotExist):
+            return Response({'error': 'Invalid user_id'}, status=status.HTTP_400_BAD_REQUEST)
 
-            # Create a new delivery crew with the provided information
-            new_crew = DeliveryCrew.objects.create(name=crew_name, is_available=is_available)
-
-            return Response({'success': 'Delivery crew added successfully'}, status=status.HTTP_201_CREATED)
-        except KeyError:
-            return Response({'error': 'Invalid payload'}, status=status.HTTP_400_BAD_REQUEST)
+        delivery_crew_group, created = Group.objects.get_or_create(name='delivery_crew')
+        user.groups.add(delivery_crew_group)
+        return Response({'success': 'User added to delivery_crew group successfully'}, status=status.HTTP_201_CREATED)
 
 @api_view(['DELETE'])
 @permission_classes([IsManagerOrReadOnly])
-def remove_delivery_crew_user(request, crew_id):
-    # Remove the crew with the given crew_id
-    crew = get_object_or_404(DeliveryCrew, pk=crew_id)
-    crew.delete()
-    return Response({'success': 'Delivery crew removed successfully'}, status=status.HTTP_200_OK)
-
-
-
-
-
+def remove_delivery_crew_user(request, user_id):
+    user = get_object_or_404(User, pk=user_id)
+    delivery_crew_group = Group.objects.get(name='delivery_crew')
+    user.groups.remove(delivery_crew_group)
+    return Response({'success': 'User removed from delivery_crew group successfully'}, status=status.HTTP_200_OK)

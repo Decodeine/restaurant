@@ -5,13 +5,6 @@ import bleach
 from rest_framework.validators import UniqueTogetherValidator
 from django.contrib.auth.models import User,Group
 
-
-
-class BookingSerializer(serializers.ModelSerializer):
-    class Meta():
-        model = Booking
-        fields = '__all__'
-
 class GroupNameField(serializers.RelatedField):
     def to_representation(self, value):
         # Return the group name
@@ -19,9 +12,20 @@ class GroupNameField(serializers.RelatedField):
 
 class UserSerializer(serializers.ModelSerializer):
     groups = GroupNameField(many=True, read_only=True)
+    
     class Meta:
         model = User
         fields = ('url', 'username', 'email', 'groups')
+
+class BookingSerializer(serializers.ModelSerializer):
+    user=UserSerializer(read_only=True)
+    class Meta():
+        model = Booking
+        fields = '__all__'
+
+
+
+
 
 class OrderItemSerializer(serializers.ModelSerializer):
     class Meta:
